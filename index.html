@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<title>Boulangerie du Village</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap">
+<style>
+/* Plein écran, ambiance chalet de montagne (thème unique volontaire) */
+:root{
+  color-scheme:light;
+  --night:#24303a;   /* fond hors boutique : nuit de montagne */
+  --cream:#fff6e8;   /* pastilles */
+  --ink:#33241a;     /* texte, contours */
+  --crust:#c9762b;   /* accent croûte */
+  --gold:#f2b632;    /* argent */
+  --pine:#3f6b4f;    /* validation */
+  --font:"Sniglet","Trebuchet MS","Arial Rounded MT Bold",system-ui,sans-serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--night);color:var(--ink);
+  overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;font-family:var(--font)}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:fixed;left:0;right:0;top:0;
+  padding:calc(env(safe-area-inset-top,0px) + 8px) max(10px,env(safe-area-inset-right,0px)) 0 max(10px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pill{background:var(--cream);border:2px solid var(--ink);border-radius:999px;box-shadow:0 3px 0 var(--ink);
+  padding:5px 12px;font-weight:800;font-size:18px;display:flex;align-items:center;gap:7px}
+#money{font-variant-numeric:tabular-nums;min-width:84px;white-space:nowrap}
+.coin{width:18px;height:18px;border-radius:50%;background:var(--gold);border:2px solid var(--ink);flex:none}
+#hint{font-size:13px;font-weight:400;align-self:center;max-width:min(92vw,420px);text-align:center;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;display:block;border-radius:14px;padding:6px 12px;line-height:1.25}
+#menuBtn{pointer-events:auto;cursor:pointer;font:inherit;font-size:15px;color:var(--ink)}
+#menuBtn:focus-visible,.panel button:focus-visible{outline:3px solid var(--crust);outline-offset:2px}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);transform:translate(-50%,20px);
+  background:var(--ink);color:var(--cream);border-radius:14px;padding:10px 16px;font-size:16px;font-weight:800;
+  opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;text-align:center;max-width:86vw}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#panel{position:fixed;inset:0;background:rgba(36,48,58,.6);display:flex;align-items:center;justify-content:center;
+  padding:0 max(16px,env(safe-area-inset-left,0px));}
+.panel{background:var(--cream);border:2px solid var(--ink);border-radius:20px;box-shadow:0 5px 0 var(--ink);
+  padding:18px;width:min(330px,100%);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.panel h2{margin:0;font-size:22px;font-weight:800;text-wrap:balance}
+.panel p{margin:0;font-size:14px;line-height:1.4}
+.panel button{font:inherit;font-size:16px;font-weight:800;border:2px solid var(--ink);border-radius:12px;
+  padding:9px;background:#fff;color:var(--ink);box-shadow:0 3px 0 var(--ink);cursor:pointer}
+.panel button.go{background:var(--pine);color:#fff}
+.panel button.danger{background:#c8433a;color:#fff}
+.panel .two{display:flex;gap:8px}.panel .two button{flex:1}
+.cheat{border:2px dashed #b06a2a;border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;background:#fdebd3}
+.cheat .tag{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a4d1c}
+#stars{font-size:15px;padding:5px 10px;gap:4px}
+.row .right{display:flex;gap:6px}
+#speedHud{pointer-events:auto;cursor:pointer;font:inherit;font-size:15px;color:var(--ink);padding:5px 10px}
+#speedHud.fast{background:var(--gold)}
+#shopBtn{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+  font:inherit;font-size:14px;font-weight:800;color:#fff;background:#b8453a;border:2px solid var(--ink);border-radius:16px;
+  box-shadow:0 3px 0 var(--ink);padding:9px 12px;cursor:pointer;max-width:46vw;text-align:left;line-height:1.2}
+#shopBtn small{display:block;font-size:11px;font-weight:400;opacity:.9}
+#shopBtn:focus-visible{outline:3px solid var(--crust);outline-offset:2px}
+#cineTop,#cineBot{position:fixed;left:0;right:0;height:0;background:#111;transition:height .35s;pointer-events:none;z-index:4}
+#cineTop{top:0}#cineBot{bottom:0}
+body.cine #cineTop,body.cine #cineBot{height:11vh}
+#cineCap{position:fixed;left:50%;top:calc(11vh + 14px);transform:translateX(-50%);background:#c8433a;color:#fff;font-weight:800;font-size:18px;
+  padding:8px 16px;border-radius:12px;border:2px solid #111;opacity:0;transition:opacity .3s;pointer-events:none;z-index:5;white-space:nowrap}
+body.cine #cineCap{opacity:1}
+body.cine #hud,body.cine #upBtn,body.cine #shopBtn,body.cine #toast{opacity:0;pointer-events:none}
+#upBtn{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+  font:inherit;font-size:15px;font-weight:800;color:var(--ink);background:var(--cream);border:2px solid var(--ink);border-radius:16px;
+  box-shadow:0 3px 0 var(--ink);padding:9px 14px;cursor:pointer}
+#upDot{position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;background:#c8433a;border:2px solid var(--ink)}
+#upBtn:focus-visible,#speedHud:focus-visible{outline:3px solid var(--crust);outline-offset:2px}
+#upPanel,#shopPanel{position:fixed;inset:0;background:rgba(36,48,58,.6);display:flex;align-items:center;justify-content:center;padding:0 max(16px,env(safe-area-inset-left,0px))}
+.upg{display:flex;align-items:center;gap:10px;border:2px solid var(--ink);border-radius:14px;background:#fff;padding:9px 10px}
+.upg + .upg{margin-top:8px}
+.upg .txt{flex:1;min-width:0}
+.upg b{display:block;font-size:15px}
+.upg small{display:block;font-size:12px;line-height:1.3;color:#6b5646}
+.upg .lvl{display:flex;gap:3px;margin-top:4px}
+.upg .lvl i{width:12px;height:6px;border-radius:3px;background:#e6dccb;border:1px solid #b9a98f}
+.upg .lvl i.on{background:var(--gold);border-color:#8a6410}
+.upg button{font-size:14px;padding:7px 9px;white-space:nowrap}
+.upg button:disabled{opacity:.45;box-shadow:none;cursor:default}
+#stars .st{color:#e0a400;letter-spacing:-1px}
+#stars .off{color:#d8cbb4}
+.panel input{font:inherit;font-size:18px;font-weight:800;border:2px solid var(--ink);border-radius:12px;padding:10px 12px;
+  background:#fff;color:var(--ink);-webkit-user-select:text;user-select:text;width:100%;box-sizing:border-box}
+.panel input:focus-visible{outline:3px solid var(--crust);outline-offset:2px}
+.panel .ideas{display:flex;flex-wrap:wrap;gap:6px}
+.panel .ideas button{font-size:13px;padding:6px 9px;box-shadow:0 2px 0 var(--ink)}
+@media (prefers-reduced-motion: reduce){#toast{transition:none}}
+</style>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Boulangerie">
+<meta name="theme-color" content="#24303a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>html,body{height:100%}body{padding:0}:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+
+
+<canvas id="c" aria-label="Boulangerie : déplace le boulanger avec le doigt"></canvas>
+<div id="hud">
+  <div class="row">
+    <div class="pill" id="money"><span class="coin"></span><span id="moneyTxt">0 €</span></div>
+    <div class="pill" id="stars" aria-label="Note de la boulangerie"></div>
+    <div class="right">
+      <button class="pill" id="speedHud" type="button" aria-label="Vitesse du jeu">x1</button>
+      <button class="pill" id="menuBtn" type="button">Menu</button>
+    </div>
+  </div>
+  <div class="pill" id="hint">Reste sur le moulin pour moudre de la farine</div>
+</div>
+<button id="upBtn" type="button">Améliorations<span id="upDot" hidden></span></button>
+<button id="shopBtn" type="button" hidden></button>
+<div id="cineTop"></div><div id="cineBot"></div><div id="cineCap"></div>
+<div id="toast"></div>
+<div id="shopPanel" hidden>
+  <div class="panel" role="dialog" aria-label="Mes commerces">
+    <h2>Mes commerces</h2>
+    <div id="shopList"></div>
+    <button type="button" id="shopClose" class="go">Rester ici</button>
+  </div>
+</div>
+<div id="upPanel" hidden>
+  <div class="panel" role="dialog" aria-label="Améliorations">
+    <h2>Améliorations</h2>
+    <div id="upList"></div>
+    <button type="button" id="upClose" class="go">Retour au fournil</button>
+  </div>
+</div>
+<div id="namePanel" hidden style="position:fixed;inset:0;background:rgba(36,48,58,.7);display:flex;align-items:center;justify-content:center;padding:0 max(16px,env(safe-area-inset-left,0px));z-index:5">
+  <form class="panel" id="nameForm" role="dialog" aria-label="Nom de la boulangerie">
+    <h2 id="nameTitle">Comment s'appelle ta boulangerie ?</h2>
+    <p>Le nom s'affichera sur l'enseigne du chalet.</p>
+    <input id="nameInput" maxlength="24" autocomplete="off" placeholder="Boulangerie des Cimes">
+    <div class="ideas" id="nameIdeas"></div>
+    <button type="submit" class="go" id="nameGo">Ouvrir ma boulangerie</button>
+  </form>
+</div>
+<div id="panel" hidden>
+  <div class="panel" role="dialog" aria-label="Menu">
+    <h2 id="menuTitle">Boulangerie du Village</h2>
+    <p id="stats"></p>
+    <p>Pose le doigt n'importe où et glisse pour marcher. Marche sur les postes pour travailler et sur les cases pointillées pour acheter. Mains pleines ? Passe à la poubelle.</p>
+    <div class="cheat" id="cheat" hidden>
+      <span class="tag">Mode test (à retirer plus tard)</span>
+      <div class="two"><button type="button" id="cash100">+100 €</button><button type="button" id="cash1000">+1 000 €</button></div>
+      <button type="button" id="speedBtn">Vitesse test : x1</button>
+    </div>
+    <button type="button" id="renameBtn">Changer le nom</button>
+    <button type="button" id="soundBtn">Son : activé</button>
+    <div id="resetZone"></div>
+    <button type="button" id="closeBtn" class="go">Reprendre</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ---------- Monde ----------
+const W = 360, H = 720;
+// ---------- Commerces : boulangerie puis pizzeria (même moteur, salle en miroir) ----------
+const PRODUCTS_B = {
+  baguette:  { name:'Baguette', plural:'baguettes',                 price:3, time:2.4, need:1 },
+  croissant: { name:'Croissant', plural:'croissants',               price:4, time:3.0, need:1 },
+  pac:       { name:'Pain au chocolat', plural:'pains au chocolat', price:6, time:3.4, need:1 },
+  sandwich:  { name:'Sandwich', plural:'sandwichs',                 price:9, time:2.6, need:1 },
+  macaron:   { name:'Macaron', plural:'macarons',                   price:8, time:3.6, need:1 },
+};
+const PRODUCTS_P = {
+  margherita:{ name:'Margherita', plural:'margheritas',             price:6, time:2.6, need:1 },
+  reine:     { name:'Reine', plural:'reines',                       price:8, time:3.0, need:1 },
+  fromages:  { name:'Pizza 4 fromages', plural:'pizzas 4 fromages', price:9, time:3.4, need:1 },
+  boite:     { name:'Pizza à emporter', plural:'pizzas à emporter', price:14, time:2.4, need:1 },
+  tiramisu:  { name:'Tiramisu', plural:'tiramisus',                 price:9, time:3.6, need:1 },
+};
+// Postes de production : 3 fours, un poste latéral qui transforme un produit, une table qui produit seule
+function makeOvens(raw, p, k = 'four'){
+  return [
+    { id:'four_pain',      kind:k, input:raw,  prod:p[0], x:120, y:98,  rot:0,         unlock:null,        zone:{x:120,y:150,w:56,h:40} },
+    { id:'four_croissant', kind:k, input:raw,  prod:p[1], x:192, y:98,  rot:0,         unlock:'croissant', zone:{x:192,y:150,w:56,h:40} },
+    { id:'four_pac',       kind:k, input:raw,  prod:p[2], x:264, y:98,  rot:0,         unlock:'pac',       zone:{x:264,y:150,w:56,h:40} },
+    { id:'sandwich',       kind:'sand', input:p[0], prod:p[3], x:332, y:212, rot:Math.PI/2, unlock:'sandwich',  zone:{x:292,y:212,w:44,h:58} },
+    { id:'patisserie',     kind:'pat',  input:null, prod:p[4], x:185, y:248, rot:0,         unlock:'patissier', zone:{x:185,y:282,w:64,h:28} },
+  ];
+}
+const SHOPS = {
+  boulangerie: {
+    products:PRODUCTS_B, order:['baguette','croissant','pac','sandwich','macaron'],
+    ovens:makeOvens('flour', ['baguette','croissant','pac','sandwich','macaron']),
+    raw:'flour', mirror:false, locked:false, patSelf:false, passiveMul:1, passiveCap:600, priceMul:1, next:'pizzeria',
+    start:{ bought:[], reserve:8, vit:{ baguette:3 }, oven:2 },
+    upg:[
+      { id:'apprenti',   name:'Apprenti caissier',    sub:'tient la caisse',      price:30,   x:236, y:345, after:[],             msg:'L\'apprenti tient la caisse. Pense à ramasser l\'argent' },
+      { id:'fournisseur',name:'Meunier livreur',      sub:'remplace le moulin',   price:50,   x:115, y:215, after:['apprenti'],   msg:'Le meunier livre la farine à la place du moulin' },
+      { id:'croissant',  name:'Four à croissants',    sub:'nouvelle recette',     price:80,   x:192, y:150, after:['fournisseur'],msg:'Nouvelle recette : croissants !' },
+      { id:'mitron',     name:'Mitron',               sub:'remplit les fours',    price:140,  x:185, y:330, after:['croissant'],  msg:'Le mitron remplit les fours de farine' },
+      { id:'boulanger',  name:'Boulanger',            sub:'remplit la vitrine',   price:200,  x:185, y:330, after:['mitron'],     msg:'Le boulanger sort les fournées et remplit la vitrine' },
+      { id:'pac',        name:'Four à pains au choc.',sub:'nouvelle recette',     price:240,  x:264, y:150, after:['boulanger'],  msg:'Nouvelle recette : pains au chocolat !' },
+      { id:'sandwich',   name:'Planche à sandwichs',  sub:'avec des baguettes',   price:350,  x:292, y:212, after:['pac'],        msg:'Planche à sandwichs : apporte-lui des baguettes' },
+      { id:'patissier',  name:'Pâtissier',            sub:'fait des macarons',    price:500,  x:185, y:270, after:['sandwich'],   msg:'Le pâtissier prépare des macarons avec la farine livrée' },
+      { id:'tables',     name:'Tables en salle',      sub:'repas sur place',      price:350,  x:236, y:345, after:['patissier'],  msg:'Des tables pour manger sur place !' },
+      { id:'serveur',    name:'Serveur',              sub:'nettoie les tables',   price:300,  x:185, y:330, after:['tables'],     msg:'Le serveur nettoie les tables' },
+      { id:'enseigne',   name:'Belle enseigne',       sub:'plus de clients',      price:500,  x:115, y:215, after:['serveur'],    msg:'La nouvelle enseigne attire plus de randonneurs' },
+      { id:'renovation', name:'Rénover le chalet',    sub:'la touche finale',     price:800,  x:185, y:330, after:['enseigne'],   msg:'Chalet rénové. C\'est la plus belle boulangerie de la montagne !' },
+      { id:'local',      name:'Acheter le local d\'à côté', sub:'ouvrir une pizzeria', price:2000, x:185, y:330, after:['renovation'], msg:'' },
+    ],
+    theme:{ kitchen:['#d8cfbf','#c4b9a6'], kitchenReno:['#e9e2d6','#d6cdbd'], shop:'planks', shopCol:['#bf8650','#a46f3e'], shopReno:['#d29c62','#b9844d'], signLit:'#f2b632', rug:'#9d3f3a' },
+    text:{ defaultName:'Boulangerie', ask:'Comment s\'appelle ta boulangerie ?', go:'Ouvrir ma boulangerie',
+      ideas:['Boulangerie des Cimes','Le Fournil du Sommet','Au Pain des Neiges'], source:'Farine', putRaw:'Mets la farine dans un four',
+      take:'Prends de la farine livrée par le meunier', wait:'Le meunier arrive avec la farine…', sandTo:'Apporte des baguettes à la planche à sandwichs',
+      sand:'Sandwichs', pat:'Macarons', final:'La plus belle boulangerie de la montagne !', short:'Boulangerie' },
+  },
+  pizzeria: {
+    products:PRODUCTS_P, order:['margherita','reine','fromages','boite','tiramisu'],
+    ovens:makeOvens('paton', ['margherita','reine','fromages','boite','tiramisu']),
+    raw:'paton', mirror:true, locked:true, patSelf:true, passiveMul:1.4, passiveCap:900, priceMul:2, next:'luxe',
+    arrive:'Tu as acheté le local d\'à côté. Il est poussiéreux : rénove-le !',
+    start:{ bought:['fournisseur'], reserve:12, vit:{}, oven:0 },
+    upg:[
+      { id:'ouverture',  name:'Rénover le local',     sub:'enlever la poussière', price:300,  x:185, y:330, after:[],             msg:'Le local est propre : ta pizzeria ouvre !' },
+      { id:'apprenti',   name:'Caissier',             sub:'tient la caisse',      price:60,   x:236, y:345, after:['ouverture'],  msg:'Le caissier tient la caisse. Pense à ramasser l\'argent' },
+      { id:'croissant',  name:'Four à reines',        sub:'nouvelle recette',     price:150,  x:192, y:150, after:['apprenti'],   msg:'Nouvelle recette : pizza reine !' },
+      { id:'mitron',     name:'Commis',               sub:'remplit les fours',    price:250,  x:185, y:330, after:['croissant'],  msg:'Le commis met les pâtons dans les fours' },
+      { id:'boulanger',  name:'Pizzaïolo',            sub:'remplit la vitrine',   price:350,  x:185, y:330, after:['mitron'],     msg:'Le pizzaïolo sort les pizzas et remplit la vitrine' },
+      { id:'pac',        name:'Four 4 fromages',      sub:'nouvelle recette',     price:420,  x:264, y:150, after:['boulanger'],  msg:'Nouvelle recette : pizza 4 fromages !' },
+      { id:'sandwich',   name:'Comptoir à emporter',  sub:'met les pizzas en boîte', price:550, x:292, y:212, after:['pac'],      msg:'Comptoir à emporter : apporte-lui des margheritas' },
+      { id:'patissier',  name:'Chef desserts',        sub:'fait des tiramisus',   price:750,  x:185, y:270, after:['sandwich'],   msg:'Le chef desserts prépare des tiramisus' },
+      { id:'tables',     name:'Tables en salle',      sub:'repas sur place',      price:600,  x:236, y:345, after:['patissier'],  msg:'Des tables pour manger sur place !' },
+      { id:'serveur',    name:'Serveur',              sub:'nettoie les tables',   price:500,  x:185, y:330, after:['tables'],     msg:'Le serveur nettoie les tables' },
+      { id:'enseigne',   name:'Enseigne lumineuse',   sub:'plus de clients',      price:800,  x:115, y:215, after:['serveur'],    msg:'L\'enseigne lumineuse attire les skieurs' },
+      { id:'renovation', name:'Terrasse panoramique', sub:'la touche finale',     price:1400, x:185, y:330, after:['enseigne'],   msg:'Terrasse panoramique ouverte. Ton empire grandit !' },
+      { id:'local',      name:'Racheter la boutique de luxe', sub:'sacs, robes, chaussures', price:6000, x:185, y:330, after:['renovation'], msg:'' },
+    ],
+    theme:{ kitchen:['#e3b79c','#cc967a'], kitchenReno:['#efc9b0','#d9a98d'], shop:'checker', shopCol:['#f4ede2','#b8453a'], shopReno:['#fbf6ee','#c8433a'], signLit:'#8fd16f', rug:'#2f6b4a' },
+    text:{ defaultName:'Pizzeria', ask:'Comment s\'appelle ta pizzeria ?', go:'Ouvrir ma pizzeria',
+      ideas:['Pizzeria des Neiges','La Pizza du Sommet','Chez Luigi des Cimes'], source:'Pâtons', putRaw:'Mets les pâtons dans un four',
+      take:'Prends les pâtons livrés par ta boulangerie', wait:'Ta boulangerie prépare les pâtons…', sandTo:'Apporte des margheritas au comptoir à emporter',
+      sand:'À emporter', pat:'Desserts', final:'Ta pizzeria est au sommet. La suite de l\'empire arrive bientôt !', short:'Pizzeria' },
+  },
+  luxe: {
+    products:{
+      sac:       { name:'Sac', plural:'sacs',                 price:180, time:5.0, need:1 },
+      robe:      { name:'Robe', plural:'robes',               price:135,  time:4.5, need:1 },
+      chaussures:{ name:'Paire de chaussures', plural:'paires de chaussures', price:105, time:4.0, need:1 },
+      sacgrave:  { name:'Sac gravé', plural:'sacs gravés',    price:330, time:4.0, need:1 },
+      parfum:    { name:'Parfum', plural:'parfums',           price:90,  time:4.0, need:1 },
+    },
+    order:['sac','robe','chaussures','sacgrave','parfum'],
+    ovens:makeOvens(null, ['sac','robe','chaussures','sacgrave','parfum'], 'shelf'),
+    raw:null, noRaw:true, luxe:true, mirror:false, locked:true, patSelf:true, pickTime:1.1, payTime:1.5,
+    passiveMul:18, passiveCap:9000, priceMul:20,
+    arrive:'Tu as racheté la boutique de luxe. Aménage-la pour ouvrir !',
+    start:{ bought:['fournisseur'], reserve:0, vit:{}, oven:0 },
+    upg:[
+      { id:'ouverture',  name:'Aménager la boutique', sub:'sols en marbre',        price:1500, x:185, y:330, after:[],              msg:'La boutique est prête : les premiers clients arrivent' },
+      { id:'vigile',     name:'Vigile à l\'entrée',  sub:'refoule les curieux',   price:800,  x:115, y:215, after:['ouverture'],   msg:'Le vigile filtre l\'entrée : seuls les vrais clients passent' },
+      { id:'apprenti',   name:'Vendeuse en caisse',   sub:'tient la caisse',       price:1000, x:236, y:345, after:['vigile'],      msg:'La vendeuse tient la caisse' },
+      { id:'croissant',  name:'Collection robes',     sub:'nouveau rayon',         price:1500, x:192, y:150, after:['apprenti'],    msg:'Nouveau rayon : les robes !' },
+      { id:'boulanger',  name:'Conseillère de vente', sub:'met en rayon',          price:2000, x:185, y:330, after:['croissant'],   msg:'La conseillère va en réserve et remplit les rayons' },
+      { id:'pac',        name:'Collection chaussures',sub:'nouveau rayon',         price:2500, x:264, y:150, after:['boulanger'],   msg:'Nouveau rayon : les chaussures !' },
+      { id:'voiturier',  name:'Voiturier',            sub:'3e place de parking',   price:2500, x:115, y:215, after:['pac'],         msg:'Le voiturier libère une 3e place de parking' },
+      { id:'sandwich',   name:'Atelier gravure',      sub:'sacs personnalisés',    price:3500, x:292, y:212, after:['pac'],         msg:'Atelier gravure : apporte-lui des sacs' },
+      { id:'patissier',  name:'Comptoir parfums',     sub:'nouveau rayon',         price:4500, x:185, y:270, after:['sandwich'],    msg:'Le parfumeur prépare ses flacons' },
+      { id:'tables',     name:'Cabines d\'essayage', sub:'les clients essaient', price:4000, x:236, y:345, after:['patissier'],   msg:'Les clients essaient leurs achats en cabine' },
+      { id:'serveur',    name:'Hôtesse',              sub:'range les cabines',     price:3000, x:185, y:330, after:['tables'],      msg:'L\'hôtesse range les vêtements laissés en cabine' },
+      { id:'enseigne',   name:'Défilé de mode',       sub:'plus de clients',       price:6000, x:115, y:215, after:['serveur','voiturier'], msg:'Le défilé fait venir toute la station' },
+      { id:'renovation', name:'Façade en marbre',     sub:'la touche finale',      price:9000, x:185, y:330, after:['enseigne'],    msg:'Façade en marbre : ta maison de luxe est la plus chic des Alpes !' },
+    ],
+    theme:{ kitchen:['#d5d7d9','#bfc3c6'], kitchenReno:['#e2e4e6','#cdd0d3'], shop:'marble', shopCol:['#f3efe8','#cfc8bd'], shopReno:['#faf7f2','#d8cfbf'], signLit:'#d4af37', rug:'#1f1f1f' },
+    text:{ defaultName:'Boutique', ask:'Comment s\'appelle ta boutique de luxe ?', go:'Ouvrir ma boutique',
+      ideas:['Maison Édelweiss','Haute Altitude','Atelier des Cimes'], source:'', putRaw:'', take:'', wait:'',
+      sandTo:'Apporte des sacs à l\'atelier gravure', sand:'Gravure', pat:'Parfums', toVit:'Mets les articles en rayon',
+      final:'Ta maison de luxe brille sur toute la station !', short:'Boutique de luxe' },
+  },
+};
+SHOPS.pizzeria.arrive = SHOPS.pizzeria.arrive || '';
+let CFG = SHOPS.boulangerie, SHOP_ID = 'boulangerie';
+let PRODUCTS = CFG.products, PROD_ORDER = CFG.order, OVENS = CFG.ovens, UPG = CFG.upg, RAW = CFG.raw, MIRROR = false;
+const isOven = o => o.kind === 'four';
+const FLOUR_Z   = { x:46,  y:150, w:62,  h:58 };  // moulin, puis livraison du meunier au même endroit
+const TRASH_Z   = { x:334, y:292, w:38,  h:38 };
+const VIT_Z     = { x:135, y:408, w:240, h:30 };
+const CAISSE_Z  = { x:310, y:408, w:56,  h:30 };
+const CASH_Z    = { x:300, y:350, w:48,  h:44 };
+const DOOR_IN   = { x:180, y:622 }, DOOR_OUT = { x:180, y:668 };
+const VSLOTS    = [34, 78, 122, 166, 210];
+const OV_IN_CAP = 6, OV_OUT_CAP = 8, VIT_CAP = 10, RES_CAP = 20;
+const THIEF_ODDS = 1 / 250;   // un client sur 250 part avec le pain sans payer
+const DINE_ODDS  = 1 / 4;     // une fois les tables achetées, un client sur 4 mange sur place
+// 3 tables rondes de 2 places dans la salle
+const TABLES = [{ x:62, y:572 }, { x:138, y:572 }, { x:214, y:572 }];
+const SEATS = TABLES.flatMap((t, i) => [{ x:t.x - 17, y:t.y + 2, table:i, side:-1 }, { x:t.x + 17, y:t.y + 2, table:i, side:1 }]);
+
+// Améliorations par niveaux, achetées dans la case « Améliorations » (perso : partout ; employés : par commerce)
+const LEVELS = {
+  cap:    { name:'Panier en osier',      vals:[4, 6, 8, 10, 12],  prices:[15, 40, 90, 160], desc:v => 'Tu portes ' + v + ' objets' },
+  speed:  { name:'Chaussures de rando',  vals:[92, 104, 116, 128], prices:[20, 50, 100],    desc:v => 'Vitesse ' + Math.round(v / 92 * 100) + ' %' },
+  wspeed: { name:'Employés plus rapides',vals:[1, 1.2, 1.4, 1.6],  prices:[80, 160, 300],   desc:v => 'Vitesse des employés ' + Math.round(v * 100) + ' %', staff:true },
+  wcap:   { name:'Paniers des employés', vals:[6, 8, 10],          prices:[120, 250],       desc:v => 'Chaque employé porte ' + v + ' objets', staff:true },
+};
+const lvObj = k => LEVELS[k].staff ? S.lv : GAME.lv;
+const lv = k => LEVELS[k].vals[lvObj(k)[k] || 0];
+
+// ---------- État ----------
+let S, GAME;
+function freshState(cfg){
+  const ov = {}; cfg.ovens.forEach(o => ov[o.id] = { in:0, out:0, prog:0 });
+  ov.four_pain.in = cfg.start.oven;
+  const vit = {}; cfg.order.forEach(p => vit[p] = cfg.start.vit[p] || 0);
+  return { cash:0, bought:cfg.start.bought.slice(), paid:{}, vit, ov, reserve:cfg.start.reserve, sold:0, stack:[],
+    lv:{ wspeed:0, wcap:0 }, name:'', rating:3.5, reviews:0, dirty:[] };
+}
+function newGame(){ return { money:0, lv:{ cap:0, speed:0 }, current:'boulangerie', shops:{ boulangerie:freshState(SHOPS.boulangerie) }, pending:{} }; }
+// l'argent est commun à tous les commerces : S.money pointe vers le portefeuille
+function attachWallet(st){
+  delete st.money;
+  Object.defineProperty(st, 'money', { get:() => GAME.money, set:v => { GAME.money = v; }, enumerable:false, configurable:true });
+}
+const has = id => S.bought.includes(id);
+const unlocked = o => !o.unlock || has(o.unlock);
+const products = () => OVENS.filter(unlocked).map(o => o.prod);
+const isOpen = () => !CFG.locked || has('ouverture');
+
+const player = { x:90, y:372, stack:[], cap:4, speed:92, act:0 };
+let workers = [], customers = [], queue = [], floats = [], cars = [];
+let moulinProg = 0, moulinSpin = 0, reserveT = 0, spawnT = 1.5, saveT = 0, tclock = 0, trashT = 0;
+let muted = false, gameSpeed = 1;
+const flakes = Array.from({ length:34 }, () => ({ x:Math.random() * 360, y:630 + Math.random() * 90, s:.6 + Math.random() * 1.2, v:8 + Math.random() * 10 }));
+
+function applyUpgrades(){
+  player.cap = lv('cap');
+  player.speed = lv('speed');
+  if (has('mitron') && !workers.some(w => w.role === 'mitron')) workers.push(makeWorker('mitron'));
+  if (has('boulanger') && !workers.some(w => w.role === 'boulanger')) workers.push(makeWorker('boulanger'));
+  if (has('serveur') && !workers.some(w => w.role === 'serveur')) workers.push(makeWorker('serveur'));
+  for (const w of workers) w.cap = lv('wcap');
+}
+// entre dans un commerce : branche sa config, son état, et verse le revenu gagné pendant l'absence
+function enterShop(id, quiet){
+  SHOP_ID = id; GAME.current = id; CFG = SHOPS[id];
+  PRODUCTS = CFG.products; PROD_ORDER = CFG.order; OVENS = CFG.ovens; UPG = CFG.upg; RAW = CFG.raw; MIRROR = CFG.mirror;
+  S = GAME.shops[id]; attachWallet(S);
+  player.stack = (S.stack || []).filter(t => t === RAW || CFG.products[t]).slice(0, 12);
+  player.x = 90; player.y = 372;
+  workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5;
+  applyUpgrades(); lastStars = '';
+  const got = Math.floor(GAME.pending[id] || 0);
+  if (got > 0) { S.cash += got; GAME.pending[id] = 0; if (!quiet) toast('Pendant ton absence, ' + (S.name || CFG.text.short) + ' a gagné ' + got + ' € : ramasse-les à la caisse'); }
+}
+function switchShop(id){
+  if (inspector) { toast('Attends la fin du contrôle de l\'URSSAF'); return; }
+  S.stack = player.stack.slice(); save();
+  enterShop(id); save();
+}
+// revenu passif des commerces où tu n'es pas : à récupérer en y retournant
+function passiveRate(id){
+  const st = GAME.shops[id], cfg = SHOPS[id];
+  if (!st.bought.includes('apprenti') || (cfg.locked && !st.bought.includes('ouverture'))) return 0;
+  const n = cfg.ovens.filter(o => !o.unlock || st.bought.includes(o.unlock)).length;
+  const staff = st.bought.includes('boulanger') && (cfg.noRaw || st.bought.includes('mitron')) ? 1 : .3;
+  return .42 * n * staff * (st.rating / 4) * cfg.passiveMul;
+}
+function updatePassive(dt){
+  for (const id in GAME.shops) if (id !== SHOP_ID) GAME.pending[id] = Math.min(SHOPS[id].passiveCap, (GAME.pending[id] || 0) + passiveRate(id) * dt);
+}
+
+// ---------- Sauvegarde ----------
+const KEY = 'boulangerie-montagne-v3';
+function snapshot(){ S.stack = player.stack.slice(); return JSON.parse(JSON.stringify(GAME)); }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(snapshot())); } catch(e){} }
+function mergeShop(id, d){
+  const cfg = SHOPS[id], st = freshState(cfg);
+  if (!d) return st;
+  Object.assign(st, d);
+  st.vit = Object.assign(freshState(cfg).vit, d.vit || {});
+  st.ov = {}; cfg.ovens.forEach(o => { st.ov[o.id] = Object.assign({ in:0, out:0, prog:0 }, (d.ov || {})[o.id] || {}); });
+  st.lv = { wspeed:(d.lv && d.lv.wspeed) || 0, wcap:(d.lv && d.lv.wcap) || 0 };
+  st.dirty = d.dirty || []; delete st.money;
+  return st;
+}
+function load(data){
+  let d = data && (data.shops || data.bought) ? data : null;
+  if (!d) { try { d = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ d = null; } }
+  if (d && d.shops) {
+    GAME = { money:d.money || 0, lv:Object.assign({ cap:0, speed:0 }, d.lv), current:d.current || 'boulangerie', shops:{}, pending:d.pending || {} };
+    for (const id in d.shops) if (SHOPS[id]) GAME.shops[id] = mergeShop(id, d.shops[id]);
+    if (!GAME.shops.boulangerie) GAME.shops.boulangerie = freshState(SHOPS.boulangerie);
+  } else {
+    // ancienne sauvegarde (une seule boulangerie)
+    GAME = newGame();
+    if (d) {
+      GAME.money = d.money || 0;
+      const b = mergeShop('boulangerie', d), had = id => (d.bought || []).includes(id);
+      if (d.lv) { GAME.lv.cap = d.lv.cap || 0; GAME.lv.speed = d.lv.speed || 0; }
+      else {
+        if (had('sac2')) GAME.lv.cap = 4; else if (had('sac')) GAME.lv.cap = 2;
+        if (had('baskets')) GAME.lv.speed = 3;
+        if (had('formation')) b.lv.wspeed = 2;
+        if (had('equipe')) b.lv.wcap = 2;
+      }
+      b.stack = (d.stack || []).map(t => t === 'pate' ? 'flour' : t);
+      GAME.shops.boulangerie = b;
+    }
+  }
+  if (!GAME.shops[GAME.current]) GAME.current = 'boulangerie';
+  enterShop(GAME.current, true);
+}
+
+// ---------- Son ----------
+let actx = null, lastBlip = 0;
+function audioOn(){
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+}
+function blip(f = 700, d = .07, type = 'sine', v = .05){
+  if (muted || !actx) return;
+  const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + .02);
+}
+function tick(f){ const n = performance.now(); if (n - lastBlip > 60) { lastBlip = n; blip(f, .05, 'triangle', .035); } }
+function chime(){ blip(880, .12, 'sine', .05); setTimeout(() => blip(1320, .16, 'sine', .045), 90); }
+function fanfare(){ [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => blip(f, .18, 'triangle', .05), i * 110)); }
+
+// ---------- Entrées ----------
+const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
+let scale = 1, ox = 0, oy = 0, dpr = 1;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = innerWidth, h = innerHeight;
+  cvs.width = Math.round(w * dpr); cvs.height = Math.round(h * dpr);
+  // le monde se place sous le bandeau (argent + indice)
+  const top = document.getElementById('hud').getBoundingClientRect().bottom + 6;
+  scale = Math.min(w / W, (h - top) / H); ox = (w - W * scale) / 2; oy = top + (h - top - H * scale) / 2;
+}
+addEventListener('resize', resize); resize();
+// le bandeau peut changer de hauteur (gros montants) : on recale le monde dessous
+try { new ResizeObserver(resize).observe(document.getElementById('hud')); } catch(e){}
+
+const joy = { on:false, id:null, bx:0, by:0, dx:0, dy:0, R:52 };
+cvs.addEventListener('pointerdown', e => {
+  e.preventDefault(); audioOn();
+  if (joy.on) return;
+  Object.assign(joy, { on:true, id:e.pointerId, bx:e.clientX, by:e.clientY, dx:0, dy:0 });
+  try { cvs.setPointerCapture(e.pointerId); } catch(_){}
+});
+cvs.addEventListener('pointermove', e => {
+  if (!joy.on || e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.bx, dy = e.clientY - joy.by;
+  const L = Math.hypot(dx, dy);
+  if (L > joy.R) { joy.bx += dx * (1 - joy.R / L); joy.by += dy * (1 - joy.R / L); dx = e.clientX - joy.bx; dy = e.clientY - joy.by; }
+  joy.dx = dx; joy.dy = dy;
+});
+const endJoy = e => { if (e.pointerId === joy.id) { joy.on = false; joy.dx = joy.dy = 0; } };
+cvs.addEventListener('pointerup', endJoy); cvs.addEventListener('pointercancel', endJoy);
+document.addEventListener('gesturestart', e => e.preventDefault());
+const keys = new Set();
+addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; keys.add(e.key.toLowerCase()); audioOn(); });
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+
+// ---------- Outils ----------
+const near = (e, z) => Math.abs(e.x - z.x) <= z.w / 2 && Math.abs(e.y - z.y) <= z.h / 2;
+const rnd = (a, b) => a + Math.random() * (b - a);
+function moveTo(e, tx, ty, sp, dt){
+  const dx = tx - e.x, dy = ty - e.y, L = Math.hypot(dx, dy);
+  if (L < 1.5) { e.x = tx; e.y = ty; return true; }
+  const s = Math.min(L, sp * dt); e.x += dx / L * s; e.y += dy / L * s; e.walk = (e.walk || 0) + dt;
+  return false;
+}
+function followPath(e, sp, dt){
+  while (e.path.length) {
+    const [tx, ty] = e.path[0];
+    if (!moveTo(e, tx, ty, sp, dt)) return false;
+    e.path.shift();
+  }
+  return true;
+}
+function float(x, y, text, color = '#33241a'){ floats.push({ x, y, text, color, t:0 }); }
+const toastEl = document.getElementById('toast'); let toastT = null;
+function toast(msg){
+  toastEl.textContent = msg; toastEl.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2800);
+}
+
+// ---------- Actions (joueur et employés) ----------
+const isGood = t => t !== 'flour' && t !== 'pate' && t !== 'paton';
+const removeOne = (c, t) => { const i = c.stack.lastIndexOf(t); if (i >= 0) c.stack.splice(i, 1); };
+function actReserve(c){
+  if (!has('fournisseur') || S.reserve < 1 || c.stack.length >= c.cap) return false;
+  S.reserve--; c.stack.push(RAW); return true;
+}
+function actOvenDrop(c, o){
+  const st = S.ov[o.id];
+  if (!o.input || !c.stack.includes(o.input) || st.in >= OV_IN_CAP) return false;
+  removeOne(c, o.input); st.in++; return true;
+}
+function actOvenTake(c, o){
+  const st = S.ov[o.id];
+  if (st.out < 1 || c.stack.length >= c.cap) return false;
+  st.out--; c.stack.push(o.prod); return true;
+}
+function actVitrine(c){
+  const i = c.stack.findIndex(t => isGood(t) && S.vit[t] < VIT_CAP);
+  if (i < 0) return false;
+  S.vit[c.stack.splice(i, 1)[0]]++; return true;
+}
+
+// ---------- Améliorations ----------
+const visiblePads = () => UPG.filter(u => !has(u.id) && u.after.every(has));
+function buy(u){
+  S.bought.push(u.id); delete S.paid[u.id];
+  applyUpgrades(); fanfare(); save();
+  if (u.id === 'local') {
+    // ce commerce tourne seul, on part ouvrir le suivant
+    const next = CFG.next;
+    GAME.shops[next] = GAME.shops[next] || freshState(SHOPS[next]);
+    switchShop(next);
+    toast(SHOPS[next].arrive);
+    askName(); return;
+  }
+  // l'URSSAF passe toutes les 5 améliorations, et toujours après la rénovation finale
+  if ((S.bought.length % 5 === 0 || u.id === 'renovation') && !inspector) inspectT = 14;
+  if (u.msg) toast(u.msg);
+}
+
+// ---------- Clients ----------
+const COATS = ['#c8433a','#3f6b8f','#3f6b4f','#d0893a','#7a5aa8','#2f8a86','#b9543f','#4f5d75'];
+const HATS  = ['#e8e1d3','#c8433a','#f2b632','#3f6b8f','#6f8f55','#d36f9a'];
+function spawnCustomer(){
+  const prods = products();
+  const used = new Set(customers.filter(c => c.slot != null).map(c => c.slot));
+  const free = VSLOTS.map((_, i) => i).filter(i => !used.has(i));
+  if (!free.length || queue.length >= 5) return;
+  const w = prods.map((_, i) => 1 + i * .6), tot = w.reduce((a, b) => a + b, 0);
+  let r = Math.random() * tot, want = prods[0];
+  for (let i = 0; i < prods.length; i++) { r -= w[i]; if (r <= 0) { want = prods[i]; break; } }
+  const qty = want === OVENS.find(o => o.kind === 'sand').prod ? 1 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * Math.min(3, prods.length + 1));
+  const side = Math.random() < .5 ? -14 : 374, slot = free[Math.floor(Math.random() * free.length)];
+  const c = { x:side, y:700, side, state:'enter', slot, want, qty, got:0, pat:55, t:0, pay:0, wait:0,
+    thief:S.sold > 30 && Math.random() < THIEF_ODDS, dine:has('tables') && Math.random() < DINE_ODDS, spent:0, seat:null,
+    path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [VSLOTS[slot], 490]],
+    coat:COATS[Math.floor(Math.random() * COATS.length)], hat:HATS[Math.floor(Math.random() * HATS.length)], mood:null };
+  if (CFG.luxe) {
+    if (Math.random() < .55) {
+      // curieux à pied : il regarde et n'achète rien (le vigile le refoule)
+      c.browse = true; c.qty = 0; c.thief = false; c.dine = false;
+      if (has('vigile')) { c.slot = null; c.refuse = true; c.path = [[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y + 6]]; }
+    } else {
+      // vrai client : arrive en voiture de luxe et se gare devant
+      const spot = freeSpot(); if (spot == null) return;
+      c.qty = Math.random() < .75 ? 1 : 2; c.pat = 75; c.hidden = true; c.state = 'car';
+      c.x = spot; c.y = 696; c.side = spot;
+      c.path = [[spot, 696], [DOOR_OUT.x, 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [VSLOTS[slot], 490]];
+      c.car = { x:side < 0 ? -50 : 410, y:705, tx:spot, side:side < 0 ? -60 : 420, state:'arrive', who:c,
+        color:CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)] };
+      cars.push(c.car);
+    }
+  }
+  customers.push(c);
+}
+const CAR_COLORS = ['#151515', '#f4f1ea', '#8a1f2b', '#2c3e57', '#c9a227'];
+function freeSpot(){
+  const spots = has('voiturier') ? [64, 296, 118] : [64, 296];
+  const used = cars.filter(k => k.state !== 'leave').map(k => k.tx);
+  const f = spots.find(x => !used.includes(x));
+  return f == null ? null : f;
+}
+function updateCars(dt){
+  for (const k of cars) {
+    if (k.state === 'arrive' && moveTo(k, k.tx, 705, 120, dt)) { k.state = 'park'; k.who.hidden = false; k.who.state = 'enter'; }
+    else if (k.state === 'leave' && moveTo(k, k.side, 705, 130, dt)) k.gone = true;
+  }
+  cars = cars.filter(k => !k.gone);
+}
+const manned = () => has('apprenti') || near(player, CAISSE_Z);
+function toQueue(c){ c.slot = null; c.state = 'queue'; queue.push(c); }
+function review(c, stars){
+  S.rating = Math.max(1, Math.min(5, S.rating * .9 + stars * .1)); S.reviews++;
+  if (stars >= 4) float(c.x, c.y - 58, '+★', '#c99a0e');
+  else if (stars <= 2) float(c.x, c.y - 58, '-★', '#c8433a');
+}
+// repas sur place : une place libre et propre, sinon avis négatif si les tables sont sales
+function sitDown(c){
+  const taken = new Set(customers.filter(o => o.seat != null).map(o => o.seat));
+  const free = SEATS.map((_, i) => i).filter(i => !taken.has(i) && !S.dirty.includes(i));
+  if (!free.length) {
+    if (S.dirty.length) { float(c.x, c.y - 70, CFG.luxe ? 'Cabines en désordre !' : 'Tables sales !', '#c8433a'); review(c, 2); leave(c, 'angry'); }
+    else leave(c, 'happy');
+    return;
+  }
+  const i = free[Math.floor(Math.random() * free.length)], seat = SEATS[i];
+  c.seat = i; c.state = 'sit'; c.path = [[seat.x, 530], [seat.x, seat.y]];
+}
+function leave(c, mood){
+  c.state = 'leave'; c.mood = mood; c.slot = null;
+  c.path = [[DOOR_IN.x, DOOR_IN.y], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_OUT.x, 700], [c.side, 700]];
+}
+
+function updateCustomers(dt){
+  if (!isOpen()) return;
+  const n = products().length;
+  // une bonne note attire plus de monde : x0,8 à 5 étoiles, x1,28 à 1 étoile
+  const interval = .8 * Math.max(1.8, 4.6 - .9 * (n - 1)) * (has('enseigne') ? .75 : 1) * (1.4 - .12 * S.rating);
+  spawnT -= dt;
+  if (spawnT <= 0) { spawnCustomer(); spawnT = interval * rnd(.75, 1.25); }
+  for (const c of customers) {
+    if (c.state === 'enter') {
+      if (followPath(c, 62, dt)) { if (c.refuse) { c.state = 'refused'; c.t = 0; } else c.state = 'shop'; }
+    } else if (c.state === 'refused') {
+      c.t += dt;
+      if (c.t > 1.2) { c.state = 'leave'; c.mood = 'meh'; c.path = [[DOOR_OUT.x, 696], [c.side, 700]]; }
+    } else if (c.state === 'shop' && c.browse) {
+      c.t += dt;
+      if (c.t > 7) leave(c, 'meh');
+    } else if (c.state === 'shop') {
+      c.t += dt; c.pat -= dt; c.spent += dt;
+      if (c.t >= (CFG.pickTime || .35) && c.got < c.qty && S.vit[c.want] > 0) { c.t = 0; S.vit[c.want]--; c.got++; }
+      if (c.got >= c.qty && c.thief && has('vigile')) {
+        // le vigile arrête le voleur à la sortie
+        S.vit[c.want] = Math.min(VIT_CAP, S.vit[c.want] + c.got); c.got = 0;
+        toast('Le vigile a arrêté un voleur à la sortie !'); leave(c, 'angry');
+      }
+      else if (c.got >= c.qty && c.thief) {
+        // le voleur file sans passer par la caisse
+        leave(c, 'thief'); c.path.shift(); c.path.unshift([180, 560]);
+        toast('Au voleur ! Un client file avec ' + c.got + ' ' + (c.got > 1 ? PRODUCTS[c.want].plural : PRODUCTS[c.want].name.toLowerCase()));
+        blip(330, .25, 'sawtooth', .04);
+      }
+      else if (c.got >= c.qty) toQueue(c);
+      else if (c.pat <= 0) { if (c.got > 0) toQueue(c); else { review(c, 1); leave(c, 'angry'); } }
+    } else if (c.state === 'queue') {
+      const i = queue.indexOf(c);
+      const there = moveTo(c, 310, 494 + i * 24, 62, dt);
+      const serving = i === 0 && there && manned();
+      if (!serving) c.wait += dt;
+      c.spent += dt;
+      if (c.wait > 50) {
+        // trop attendu à la caisse : repose ses achats et s'en va
+        S.vit[c.want] = Math.min(VIT_CAP, S.vit[c.want] + c.got);
+        queue.splice(i, 1); review(c, 1); leave(c, 'angry'); continue;
+      }
+      if (serving) {
+        c.pay += dt;
+        if (c.pay >= (CFG.payTime || .6)) {
+          const earn = c.got * PRODUCTS[c.want].price;
+          S.cash += earn; S.sold += c.got;
+          float(310, 470, '+' + earn + ' €', '#8a6410'); blip(1200, .06, 'square', .02);
+          queue.shift();
+          review(c, c.spent < 22 ? 5 : c.spent < 38 ? 4 : 3);
+          if (c.dine) sitDown(c); else leave(c, 'happy');
+        }
+      }
+    } else if (c.state === 'sit') {
+      if (followPath(c, 62, dt)) { c.state = 'eat'; c.t = 0; }
+    } else if (c.state === 'eat') {
+      c.t += dt;
+      if (c.t > 9) { S.dirty.push(c.seat); c.seat = null; leave(c, 'happy'); }
+    } else if (c.state === 'leave') {
+      if (followPath(c, c.mood === 'thief' ? 130 : 66, dt)) { c.gone = true; if (c.car) c.car.state = 'leave'; }
+    }
+  }
+  customers = customers.filter(c => !c.gone);
+}
+
+// ---------- Contrôle de l'URSSAF (après certaines améliorations) ----------
+let inspector = null, inspectT = -1;
+function updateInspector(dt){
+  if (inspectT > 0) {
+    inspectT -= dt;
+    if (inspectT <= 0) {
+      inspectT = -1;
+      inspector = { x:-14, y:700, side:-14, state:'in', t:0, cine:true,
+        path:[[DOOR_OUT.x, 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [60, 560], [230, 560], [250, 520]] };
+      cineOn(true);
+      blip(220, .3, 'square', .03); setTimeout(() => blip(180, .4, 'square', .03), 250);
+    }
+  }
+  const e = inspector; if (!e) return;
+  if (e.state === 'in') { if (followPath(e, 80, dt)) { e.state = 'check'; e.t = 0; } }
+  else if (e.state === 'check') {
+    e.t += dt;
+    if (e.t > 2.4) {
+      const fee = Math.min(Math.floor(S.money), Math.max(10, Math.round(S.money * .35)));
+      S.money -= fee;
+      float(e.x, e.y - 60, '-' + fee + ' €', '#c8433a'); blip(140, .5, 'sawtooth', .04);
+      document.getElementById('cineCap').textContent = fee > 0 ? 'L\'URSSAF prend ' + fee + ' € (35 %)' : 'L\'URSSAF repart bredouille';
+      e.state = 'out'; e.path = [[DOOR_IN.x, DOOR_IN.y], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_OUT.x, 700], [374, 700]];
+    }
+  } else {
+    if (e.cine && e.path.length <= 2 && e.t > 4.4) { e.cine = false; cineOn(false); }
+    e.t += dt;
+    if (followPath(e, e.cine ? 90 : 60, dt)) inspector = null;
+  }
+}
+// mode cinéma : bandes noires, légende, le reste du jeu attend
+function cineOn(on){
+  document.body.classList.toggle('cine', on);
+  if (on) document.getElementById('cineCap').textContent = 'Contrôle de l\'URSSAF !';
+  if (on) { joy.on = false; joy.dx = joy.dy = 0; }
+}
+const cam = { z:1, x:180, y:360 };
+function updateCam(dt){
+  const e = inspector, on = e && e.cine, tz = on ? 1.9 : 1;
+  let tx = 180, ty = 360;
+  if (on) {
+    tx = MIRROR ? 360 - e.x : e.x; ty = e.y - 24;
+    const hw = 180 / tz, hh = 360 / tz;
+    tx = Math.max(hw, Math.min(360 - hw, tx)); ty = Math.max(hh, Math.min(720 - hh, ty));
+  }
+  const k = Math.min(1, dt * 4);
+  cam.z += (tz - cam.z) * k; cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+}
+
+// ---------- Employés ----------
+function makeWorker(role){
+  const shop = role === 'serveur';
+  return { role, x:shop ? 300 : 185, y:shop ? 606 : 262, stack:[], cap:role === 'mitron' ? 5 : 6, speed:66, act:0, task:null, think:0 };
+}
+const workerSpeed = w => w.speed * lv('wspeed');
+function updateServer(w, dt){
+  // nettoie la table sale la plus proche, sinon attend près de la caisse
+  const busy = new Set(customers.filter(o => o.seat != null).map(o => o.seat));
+  const dist = i => Math.hypot(SEATS[i].x - w.x, SEATS[i].y - w.y);
+  const dirty = S.dirty.filter(i => !busy.has(i)).sort((a, b) => dist(a) - dist(b))[0];
+  if (dirty == null) { w.act = 0; moveTo(w, 300, 606, workerSpeed(w), dt); return; }
+  const s = SEATS[dirty];
+  if (moveTo(w, s.x, s.y - 16, workerSpeed(w), dt)) {
+    w.act += dt;
+    if (w.act > .9) { w.act = 0; S.dirty.splice(S.dirty.indexOf(dirty), 1); tick(980); }
+  }
+}
+// stock d'un produit : ce qui est en vitrine, sorti du four, et en train de cuire
+const stockOf = o => S.vit[o.prod] + S.ov[o.id].out + S.ov[o.id].in / PRODUCTS[o.prod].need;
+function mitronThink(w){
+  const ovs = OVENS.filter(o => isOven(o) && unlocked(o) && S.ov[o.id].in < OV_IN_CAP);
+  if (w.stack.includes(RAW)) {
+    const o = ovs.sort((a, b) => stockOf(a) - stockOf(b))[0];
+    return o ? { type:'drop', o } : { type:'wait' };
+  }
+  if (S.reserve > 0 && ovs.length) return { type:'res' };
+  return { type:'wait' };
+}
+function boulangerThink(w){
+  const sand = OVENS.find(o => o.kind === 'sand');
+  if (w.stack.includes(sand.input) && unlocked(sand) && S.ov.sandwich.in < 3) return { type:'drop', o:sand };
+  if (w.stack.some(isGood)) return { type:'vit' };
+  const ready = OVENS.filter(unlocked).filter(o => S.vit[o.prod] < VIT_CAP && (S.ov[o.id].out >= 2 || (S.ov[o.id].out >= 1 && S.ov[o.id].in === 0)))
+    .sort((a, b) => S.vit[a.prod] - S.vit[b.prod])[0];
+  return ready ? { type:'take', o:ready } : { type:'wait' };
+}
+function updateWorkers(dt){
+  for (const w of workers) {
+    if (w.role === 'serveur') { updateServer(w, dt); continue; }
+    w.think -= dt;
+    if (!w.task || w.think <= 0) { w.task = w.role === 'mitron' ? mitronThink(w) : boulangerThink(w); w.think = 1.2; }
+    const t = w.task;
+    let tx, ty;
+    if (t.type === 'vit') { tx = 150; ty = 408; }
+    else if (t.type === 'drop' || t.type === 'take') { tx = t.o.zone.x + (w.role === 'mitron' ? -8 : 8); ty = t.o.zone.y + 4; }
+    else if (t.type === 'res') { tx = FLOUR_Z.x + 12; ty = FLOUR_Z.y + 8; }
+    else if (w.role === 'mitron') { tx = 98; ty = 250; } else { tx = 200; ty = 360; }
+    if (moveTo(w, tx, ty, workerSpeed(w), dt) && t.type !== 'wait') {
+      w.act -= dt;
+      if (w.act <= 0) {
+        let ok = false;
+        if (t.type === 'vit') ok = actVitrine(w);
+        else if (t.type === 'drop') ok = actOvenDrop(w, t.o);
+        else if (t.type === 'take') ok = actOvenTake(w, t.o);
+        else if (t.type === 'res') ok = actReserve(w);
+        if (ok) w.act = .2 / lv('wspeed'); else w.think = 0;
+      }
+    }
+  }
+}
+
+// ---------- Joueur ----------
+let padPayT = 0;
+function updatePlayer(dt){
+  let vx = 0, vy = 0;
+  if (joy.on) { const L = Math.hypot(joy.dx, joy.dy); if (L > 6) { vx = joy.dx / joy.R; vy = joy.dy / joy.R; } }
+  if (keys.has('arrowleft') || keys.has('a') || keys.has('q')) vx -= 1;
+  if (keys.has('arrowright') || keys.has('d')) vx += 1;
+  if (keys.has('arrowup') || keys.has('w') || keys.has('z')) vy -= 1;
+  if (keys.has('arrowdown') || keys.has('s')) vy += 1;
+  if (MIRROR) vx = -vx;
+  const L = Math.hypot(vx, vy); if (L > 1) { vx /= L; vy /= L; }
+  player.x = Math.max(18, Math.min(342, player.x + vx * player.speed * dt));
+  player.y = Math.max(84, Math.min(420, player.y + vy * player.speed * dt));
+  if (L > .05) player.walk = (player.walk || 0) + dt;
+
+  // Moulin : il faut rester dessus pour moudre (disparaît quand le meunier livre)
+  if (!has('fournisseur') && near(player, FLOUR_Z) && player.stack.length < player.cap) {
+    moulinProg += dt; moulinSpin += dt * 5;
+    if (moulinProg >= .6) { moulinProg = 0; player.stack.push(RAW); tick(520); }
+  } else moulinProg = Math.max(0, moulinProg - dt);
+
+  // Poubelle : vide les mains, un objet à la fois
+  if (near(player, TRASH_Z) && player.stack.length) {
+    trashT -= dt;
+    if (trashT <= 0) { trashT = .08; player.stack.pop(); tick(260); }
+  }
+
+  player.act -= dt;
+  if (player.act <= 0) {
+    let did = false;
+    if (near(player, FLOUR_Z)) did = actReserve(player);
+    for (const o of OVENS) if (unlocked(o) && near(player, o.zone)) did = actOvenDrop(player, o) || actOvenTake(player, o) || did;
+    if (near(player, VIT_Z)) did = actVitrine(player) || did;
+    if (did) { player.act = .11; tick(640); }
+  }
+  if (S.cash > 0 && near(player, CASH_Z)) {
+    float(player.x, player.y - 40, '+' + S.cash + ' €', '#8a6410');
+    S.money += S.cash; S.cash = 0; chime();
+  }
+  for (const u of visiblePads()) {
+    if (!near(player, { x:u.x, y:u.y, w:56, h:44 })) continue;
+    const left = u.price - (S.paid[u.id] || 0);
+    const pay = Math.min(S.money, left, Math.max(1, u.price / 1.6) * dt);
+    if (pay > 0) {
+      S.money -= pay; S.paid[u.id] = (S.paid[u.id] || 0) + pay;
+      padPayT -= dt; if (padPayT <= 0) { padPayT = .09; blip(900 + 400 * (S.paid[u.id] / u.price), .04, 'triangle', .025); }
+      if (S.paid[u.id] >= u.price - 1e-6) buy(u);
+    }
+  }
+}
+
+function updateFloats(dt){ floats.forEach(f => f.t += dt); floats = floats.filter(f => f.t < 1.4); }
+// ---------- Fours et livraisons ----------
+function updateWorld(dt){
+  for (const o of OVENS) {
+    if (!unlocked(o)) continue;
+    const st = S.ov[o.id], p = PRODUCTS[o.prod];
+    // le pâtissier se sert lui-même dans la réserve de farine
+    if ((o.kind === 'pat' || o.kind === 'shelf') && st.in < 2) { if (CFG.patSelf || o.kind === 'shelf') st.in++; else if (S.reserve > 0) { S.reserve--; st.in++; } }
+    if (st.in >= p.need && st.out < OV_OUT_CAP) {
+      st.prog += dt;
+      if (st.prog >= p.time) { st.prog = 0; st.in -= p.need; st.out++; }
+    }
+  }
+  if (!CFG.noRaw && has('fournisseur') && S.reserve < RES_CAP) {
+    reserveT += dt;
+    if (reserveT >= (has('mitron') ? .8 : 1.2)) { reserveT = 0; S.reserve++; }
+  }
+  updateFloats(dt);
+  for (const f of flakes) { f.y += f.v * dt; f.x += Math.sin(tclock + f.v) * 4 * dt; if (f.y > 720) { f.y = 632; f.x = Math.random() * 360; } }
+}
+
+// ---------- Indice ----------
+function hint(){
+  if (!isOpen()) return ['Le local est poussiéreux : rénove-le pour ouvrir', UPG[0]];
+  if (S.cash > 0) return ['Ramasse l\'argent près de la caisse', CASH_Z];
+  if (queue.length && !manned()) return ['Un client attend : va à la caisse', CAISSE_Z];
+  const st = player.stack, ovs = OVENS.filter(unlocked);
+  const sand = OVENS.find(o => o.kind === 'sand');
+  if (st.includes(sand.input) && unlocked(sand) && S.ov.sandwich.in === 0 && S.vit[sand.prod] < 3)
+    return [CFG.text.sandTo, sand.zone];
+  if (st.some(isGood)) return [CFG.text.toVit || 'Pose tes produits dans la vitrine', VIT_Z];
+  const freeOven = ovs.filter(o => isOven(o) && S.ov[o.id].in < OV_IN_CAP).sort((a, b) => stockOf(a) - stockOf(b))[0];
+  if (st.includes(RAW) && freeOven) return [CFG.text.putRaw, freeOven.zone];
+  if (st.length >= player.cap) return ['Mains pleines : passe à la poubelle', TRASH_Z];
+  const ready = ovs.find(o => S.ov[o.id].out > 0);
+  if (ready) return [isOven(ready) ? 'Sors les produits du four' : ready.kind === 'shelf' ? 'Prends les ' + PRODUCTS[ready.prod].plural + ' en réserve' : 'Récupère les ' + PRODUCTS[ready.prod].plural, ready.zone];
+  const pads = visiblePads();
+  if (S.dirty.length >= 3 && !has('serveur')) return [CFG.luxe ? 'Les cabines débordent : engage une hôtesse' : 'Les tables sont sales : engage un serveur', UPG.find(u => u.id === 'serveur')];
+  if (CFG.luxe && !has('vigile') && customers.filter(c => c.browse && c.state === 'shop').length >= 3)
+    return ['Des curieux bloquent les rayons : engage un vigile', UPG.find(u => u.id === 'vigile')];
+  const afford = pads.find(u => S.money >= u.price - (S.paid[u.id] || 0) - .5);
+  if (afford) return ['Achète « ' + afford.name + ' » : marche sur la case', afford];
+  if (!upDot.hidden) return ['Touche « Améliorations » en bas à droite', null];
+  if (workers.length && pads.length) return ['Prochain achat : ' + pads[0].name + ' (' + pads[0].price + ' €)', null];
+  if (has('renovation') && !pads.length) return [CFG.text.final, null];
+  if (CFG.noRaw) return ['Les clients arrivent en voiture de luxe…', null];
+  if (has('fournisseur')) return S.reserve > 0 ? [CFG.text.take, FLOUR_Z] : [CFG.text.wait, null];
+  return ['Reste sur le moulin pour moudre de la farine', FLOUR_Z];
+}
+
+// ---------- Dessin ----------
+function rr(x, y, w, h, r, fill, stroke, lw = 1.4){
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+function circle(x, y, r, fill, stroke, lw = 1.4){
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+function text(t, x, y, size = 9, color = '#33241a', weight = 800, align = 'center'){
+  ctx.font = weight + ' ' + size + 'px Sniglet, "Trebuchet MS", sans-serif';
+  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  if (MIRROR) { ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.fillText(t, 0, 0); ctx.restore(); }
+  else ctx.fillText(t, x, y);
+}
+function drawItem(t, x, y, s = 1){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  if (t === 'flour') {
+    rr(-7, -7, 14, 15, 4, '#f4ead2', '#8c6f4a');
+    rr(-5, -9, 10, 4, 2, '#d8c7a0', '#8c6f4a', 1);
+    ctx.strokeStyle = '#c9a25a'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -3);
+    ctx.moveTo(0, 0); ctx.lineTo(-3, -3); ctx.moveTo(0, 0); ctx.lineTo(3, -3); ctx.stroke();
+  } else if (t === 'pate') {
+    ctx.beginPath(); ctx.ellipse(0, 1, 8.5, 6.5, 0, 0, 7); ctx.fillStyle = '#f6ecd6'; ctx.fill();
+    ctx.strokeStyle = '#b39a74'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-2.5, -1.5, 3, 1.6, -.4, 0, 7); ctx.fillStyle = '#fffaf0'; ctx.fill();
+  } else if (t === 'baguette') {
+    ctx.rotate(-.35); rr(-12, -3.6, 24, 7.2, 3.6, '#dc9a45', '#8a5523');
+    ctx.strokeStyle = '#f5cd86'; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let i = -6; i <= 6; i += 6) { ctx.moveTo(i - 2, 1.5); ctx.lineTo(i + 2, -1.5); } ctx.stroke();
+  } else if (t === 'croissant') {
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#8a5523'; ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(0, 6, 8, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
+    ctx.strokeStyle = '#e09e48'; ctx.lineWidth = 6.4; ctx.beginPath(); ctx.arc(0, 6, 8, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
+    ctx.strokeStyle = '#b8732f'; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.moveTo(-3, -4); ctx.lineTo(-2, 0); ctx.moveTo(3, -4); ctx.lineTo(2, 0); ctx.stroke();
+  } else if (t === 'pac') {
+    rr(-8.5, -5.5, 17, 11, 3, '#e3aa60', '#8a5523');
+    ctx.fillStyle = '#4a2a17'; ctx.fillRect(-4.5, -5, 2, 10); ctx.fillRect(2.5, -5, 2, 10);
+  } else if (t === 'sandwich') {
+    rr(-11, -1, 22, 6, 3, '#dc9a45', '#8a5523');
+    ctx.fillStyle = '#6fae4a'; for (let i = -9; i < 10; i += 4) { ctx.beginPath(); ctx.arc(i, -1.5, 2.2, Math.PI, 0); ctx.fill(); }
+    ctx.fillStyle = '#e99a9a'; ctx.fillRect(-10, -3, 20, 2.2);
+    rr(-11, -7, 22, 5, 2.5, '#e3a552', '#8a5523');
+  } else if (t === 'paton') {
+    ctx.beginPath(); ctx.ellipse(0, 1, 8, 6.5, 0, 0, 7); ctx.fillStyle = '#f3e3c4'; ctx.fill();
+    ctx.strokeStyle = '#b39a74'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-2.5, -1.5, 3, 1.6, -.4, 0, 7); ctx.fillStyle = '#fffaf0'; ctx.fill();
+  } else if (t === 'margherita' || t === 'reine' || t === 'fromages') {
+    circle(0, 0, 8.5, '#e2a85a', '#8a5523'); circle(0, 0, 6.5, t === 'fromages' ? '#f5d36b' : '#d2442f');
+    ctx.fillStyle = '#fff3c4'; [[-2.5, -2], [2.5, -1], [0, 2.8], [-3, 2]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b, 1.6, 0, 7); ctx.fill(); });
+    if (t === 'margherita') { ctx.fillStyle = '#4f9a3c'; [[1.5, 2.5], [-1, -3.5], [3.5, -3]].forEach(([a, b]) => { ctx.beginPath(); ctx.ellipse(a, b, 1.6, 1, .6, 0, 7); ctx.fill(); }); }
+    if (t === 'reine') { ctx.fillStyle = '#e99a9a'; [[2, 2], [-3, -.5]].forEach(([a, b]) => ctx.fillRect(a - 1.4, b - 1.4, 2.8, 2.8)); ctx.fillStyle = '#c9b49a'; [[3.5, -2.5], [-1, 4]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b, 1.4, 0, 7); ctx.fill(); }); }
+    if (t === 'fromages') { ctx.fillStyle = '#e8902f'; [[1.5, 2.5], [-1, -3.5], [3.5, -3]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b, 1.3, 0, 7); ctx.fill(); }); }
+  } else if (t === 'boite') {
+    rr(-9, -8, 18, 16, 2, '#dcbf8f', '#8a6a40'); rr(-6, -5, 12, 10, 1.5, null, '#b99a6a', 1);
+    circle(0, 0, 3, '#c8433a');
+  } else if (t === 'tiramisu') {
+    rr(-8, -6, 16, 12, 2, '#6b4226', '#3f2716', 1); ctx.fillStyle = '#f3e6c8'; ctx.fillRect(-7, -2.5, 14, 2); ctx.fillRect(-7, 2, 14, 2);
+    ctx.fillStyle = '#4a2a17'; [[-4, -4.5], [0, -4.8], [4, -4.3]].forEach(([a, b]) => ctx.fillRect(a, b, 1.2, 1.2));
+  } else if (t === 'sac' || t === 'sacgrave') {
+    ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, -3, 5, Math.PI, 0); ctx.stroke();
+    rr(-8.5, -3, 17, 11, 3, t === 'sac' ? '#1f1f1f' : '#8a1f2b', '#000', 1);
+    rr(-2, -1, 4, 3, 1, '#d4af37');
+    if (t === 'sacgrave') { ctx.fillStyle = '#d4af37'; ctx.font = '800 5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('A', 0, 5); }
+  } else if (t === 'robe') {
+    ctx.beginPath(); ctx.moveTo(-3, -9); ctx.lineTo(3, -9); ctx.lineTo(4, -3); ctx.lineTo(9, 9); ctx.lineTo(-9, 9); ctx.lineTo(-4, -3); ctx.closePath();
+    ctx.fillStyle = '#b8325a'; ctx.fill(); ctx.strokeStyle = '#5a1028'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#1f1f1f'; ctx.fillRect(-4, -3.5, 8, 1.8);
+  } else if (t === 'chaussures') {
+    ctx.beginPath(); ctx.moveTo(-9, 3); ctx.quadraticCurveTo(-8, -4, -2, -1); ctx.quadraticCurveTo(4, 2, 9, 3); ctx.lineTo(9, 5); ctx.lineTo(-9, 5); ctx.closePath();
+    ctx.fillStyle = '#1f1f1f'; ctx.fill();
+    ctx.fillStyle = '#c8433a'; ctx.fillRect(-9, 4, 18, 1.5);
+    ctx.fillStyle = '#1f1f1f'; ctx.fillRect(-9, 3, 2, 7);
+  } else if (t === 'parfum') {
+    rr(-6, -4, 12, 12, 3, '#f2d7e4', '#8a6a72', 1); rr(-3, -8, 6, 4, 1, '#d4af37', '#8a6410', .8);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-4, -2, 2, 7);
+  } else if (t === 'macaron') {
+    [['#f2a7bd', -4.5, 1], ['#a8d48f', 4.5, 1], ['#f5d36b', 0, -4]].forEach(([col, dx, dy]) => {
+      rr(dx - 4.5, dy - 3, 9, 6, 3, col, '#8a5523', 1); ctx.fillStyle = '#fff6e8'; ctx.fillRect(dx - 4, dy - .4, 8, 1);
+    });
+  }
+  ctx.restore();
+}
+
+function pine(x, y, s){
+  ctx.fillStyle = '#5a3d27'; ctx.fillRect(x - 2 * s, y - 2 * s, 4 * s, 7 * s);
+  [[0, 20, 14], [-9, 15, 11], [-17, 10, 8]].forEach(([dy, hw, h]) => {
+    ctx.beginPath(); ctx.moveTo(x, y + (dy - h - 6) * s); ctx.lineTo(x - hw * s / 1.4, y + dy * s / 4 - 1 * s); ctx.lineTo(x + hw * s / 1.4, y + dy * s / 4 - 1 * s); ctx.closePath();
+    ctx.fillStyle = '#2f5a42'; ctx.fill();
+  });
+  ctx.beginPath(); ctx.moveTo(x, y - 23 * s); ctx.lineTo(x - 4 * s, y - 17 * s); ctx.lineTo(x + 4 * s, y - 17 * s); ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill();
+}
+function windowView(x, y, w, h){
+  rr(x - 3, y - 3, w + 6, h + 6, 4, '#5e3b22');
+  const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#9cc6e4'); g.addColorStop(1, '#dcecf6');
+  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.fillStyle = '#7d8ea3'; ctx.beginPath(); ctx.moveTo(x - 4, y + h); ctx.lineTo(x + w * .35, y + h * .3); ctx.lineTo(x + w * .7, y + h * .75); ctx.lineTo(x + w * .85, y + h * .45); ctx.lineTo(x + w + 6, y + h); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x + w * .35, y + h * .3); ctx.lineTo(x + w * .26, y + h * .5); ctx.lineTo(x + w * .44, y + h * .5); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x + w * .85, y + h * .45); ctx.lineTo(x + w * .79, y + h * .58); ctx.lineTo(x + w * .92, y + h * .58); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#5e3b22'; ctx.fillRect(x + w / 2 - 1.5, y, 3, h); ctx.fillRect(x, y + h / 2 - 1.5, w, 3);
+  ctx.fillStyle = '#fff'; rr(x - 4, y + h + 1, w + 8, 4, 2, '#f4f7fa');
+}
+
+function drawRoom(){
+  const reno = has('renovation');
+  // dehors : neige et sapins
+  ctx.fillStyle = '#e9f0f5'; ctx.fillRect(0, 630, 360, 90);
+  ctx.fillStyle = '#d5dfe7'; for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.ellipse(20 + i * 42, 712, 26, 6, 0, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#c9b8a2'; ctx.beginPath(); ctx.moveTo(158, 640); ctx.lineTo(202, 640); ctx.lineTo(206, 690); ctx.lineTo(360, 690); ctx.lineTo(360, 708);
+  ctx.lineTo(0, 708); ctx.lineTo(0, 690); ctx.lineTo(154, 690); ctx.closePath(); ctx.fill();
+  pine(26, 676, .9); pine(70, 690, .7); pine(300, 680, .85); pine(338, 692, .7);
+  // fournil : dalles de pierre
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 70, 360, 360); ctx.clip();
+  const th = CFG.theme, kc = reno ? th.kitchenReno : th.kitchen;
+  ctx.fillStyle = kc[0]; ctx.fillRect(0, 70, 360, 360);
+  ctx.strokeStyle = kc[1]; ctx.lineWidth = 1.2;
+  for (let y = 70, r = 0; y < 430; y += 30, r++) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(360, y); ctx.stroke();
+    for (let x = (r % 2) * 22; x < 360; x += 44) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 30); ctx.stroke(); }
+  }
+  ctx.restore();
+  // boutique : parquet de mélèze
+  const sc = reno ? th.shopReno : th.shopCol;
+  if (th.shop === 'checker') {
+    // carrelage en damier de trattoria
+    for (let y = 430, r = 0; y < 630; y += 20, r++) for (let x = 0, c = 0; x < 360; x += 20, c++) { ctx.fillStyle = (r + c) % 2 ? sc[1] : sc[0]; ctx.fillRect(x, y, 20, 20); }
+  } else if (th.shop === 'marble') {
+    // marbre clair veiné
+    ctx.fillStyle = sc[0]; ctx.fillRect(0, 430, 360, 200);
+    ctx.strokeStyle = sc[1]; ctx.lineWidth = .8;
+    for (let i = 0; i < 14; i++) { const x0 = (i * 61) % 360, y0 = 432 + (i * 37) % 190; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x0 + 20, y0 + 6, x0 + 46, y0 - 4); ctx.stroke(); }
+    ctx.lineWidth = 1; for (let x = 0; x < 360; x += 60) { ctx.beginPath(); ctx.moveTo(x, 430); ctx.lineTo(x, 630); ctx.stroke(); }
+    for (let y = 430; y < 630; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(360, y); ctx.stroke(); }
+  } else {
+    ctx.fillStyle = sc[0]; ctx.fillRect(0, 430, 360, 200);
+    ctx.strokeStyle = sc[1]; ctx.lineWidth = 1;
+    for (let y = 430, r = 0; y < 630; y += 16, r++) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(360, y); ctx.stroke();
+      for (let x = (r % 2) * 45; x < 360; x += 90) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 16); ctx.stroke(); }
+    }
+  }
+  if (reno) { rr(30, 536, 220, 72, 12, th.rug); rr(38, 544, 204, 56, 8, null, '#e8c070', 2); }
+  if (has('tables') && CFG.luxe) SEATS.forEach((st, si) => {
+    // cabine d'essayage : cadre, tringle dorée, rideau ; vêtements laissés en vrac quand elle est en désordre
+    rr(st.x - 14, st.y - 30, 28, 32, 3, '#f4efe6', '#5e5850', 1.4);
+    ctx.fillStyle = '#d4af37'; ctx.fillRect(st.x - 14, st.y - 31, 28, 2.5);
+    ctx.fillStyle = '#7a1f2b'; for (let k = 0; k < 4; k++) ctx.fillRect(st.x - 13 + k * 3.2, st.y - 28, 2.6, 28);
+    if (S.dirty.includes(si)) { drawItem('robe', st.x + 6, st.y - 4, .45); drawItem('chaussures', st.x + 2, st.y + 2, .4); }
+  });
+  else if (has('tables')) TABLES.forEach((t, i) => {
+    [-1, 1].forEach(sd => circle(t.x + sd * 17, t.y + 4, 6, '#6b4226', '#3f2716', 1.2));
+    circle(t.x, t.y, 12, '#a8763f', '#5e3d22', 1.6); circle(t.x, t.y, 8.5, null, '#8f5f30', 1);
+    [0, 1].forEach(k => {
+      const si = i * 2 + k;
+      if (S.dirty.includes(si)) {
+        const px = t.x + (k ? 5 : -5);
+        circle(px, t.y - 1, 4.5, '#f4f7fa', '#9aa3a8', 1);
+        ctx.fillStyle = '#b07a3e'; [[-1.5, -1], [1.2, .6], [-.4, 1.6]].forEach(([a, b]) => ctx.fillRect(px + a, t.y - 1 + b, 1.2, 1.2));
+      }
+    });
+  });
+  // mur du fond en rondins, avec fenêtres sur les sommets
+  for (let y = 0; y < 70; y += 14) { rr(0, y, 360, 13, 6, '#8b5a33', '#6b4226', 1); }
+  windowView(18, 12, 44, 34); windowView(298, 12, 44, 34);
+  ctx.fillStyle = '#5e3b22'; ctx.fillRect(0, 66, 360, 6);
+  // murs latéraux et façade
+  ctx.fillStyle = '#6b4226'; ctx.fillRect(0, 72, 7, 568); ctx.fillRect(353, 72, 7, 568);
+  for (let x = 0; x < 360; x += 14) if (x < 150 || x > 200) rr(x, 626, 13, 16, 5, '#8b5a33', '#6b4226', 1);
+  ctx.fillStyle = '#5e3b22'; ctx.fillRect(146, 622, 6, 22); ctx.fillRect(208, 622, 6, 22);
+  ctx.fillStyle = '#f4f7fa'; for (let x = 0; x < 360; x += 14) if (x < 146 || x > 210) { ctx.beginPath(); ctx.ellipse(x + 7, 626, 8, 3, 0, 0, 7); ctx.fill(); }
+  rr(156, 640, 48, 10, 3, '#7a4b2a');
+  // enseigne
+  const label = S.name || CFG.text.defaultName;
+  let fs = 11; ctx.font = '800 ' + fs + 'px Sniglet, "Trebuchet MS", sans-serif';
+  let tw = ctx.measureText(label).width;
+  if (tw > 186) { fs = 11 * 186 / tw; tw = 186; }
+  const sw = Math.max(108, tw + 34), sx0 = 180 - sw / 2;
+  rr(sx0, 6, sw, 24, 8, has('enseigne') ? CFG.theme.signLit : '#f4ead2', '#33241a', 1.6);
+  ctx.fillStyle = '#7d8ea3'; ctx.beginPath(); ctx.moveTo(sx0 + 8, 25); ctx.lineTo(sx0 + 15, 13); ctx.lineTo(sx0 + 22, 25); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(sx0 + 15, 13); ctx.lineTo(sx0 + 12.5, 17.5); ctx.lineTo(sx0 + 17.5, 17.5); ctx.fill();
+  text(label, 180 + 9, 18.5, fs);
+  // comptoir + vitrine
+  rr(0, 428, 264, 36, 0, '#7a4b2a'); ctx.fillStyle = '#986238'; ctx.fillRect(0, 428, 264, 7);
+  ctx.fillStyle = 'rgba(214,236,238,.55)'; ctx.fillRect(4, 437, 256, 24);
+  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.strokeRect(4.5, 437.5, 255, 23);
+  const ps = products();
+  PROD_ORDER.forEach((p, i) => {
+    const sx = 7 + i * 51;
+    if (i) { ctx.fillStyle = 'rgba(122,75,42,.5)'; ctx.fillRect(sx - 3, 438, 1.5, 22); }
+    if (!ps.includes(p)) return;
+    const n = S.vit[p];
+    for (let k = 0; k < Math.min(n, VIT_CAP); k++) drawItem(p, sx + 5 + (k % 5) * 9, 444 + Math.floor(k / 5) * 10, .5);
+    if (n === 0) text('vide', sx + 22, 449, 7, 'rgba(51,36,26,.55)');
+  });
+  // caisse
+  rr(268, 424, 86, 46, 4, '#5e3b22'); ctx.fillStyle = '#7a4b2a'; ctx.fillRect(268, 424, 86, 6);
+  rr(292, 430, 38, 20, 3, '#3f4b4f', '#222', 1); ctx.fillStyle = '#9fd39a'; ctx.fillRect(296, 433, 30, 7);
+  text('Caisse', 311, 461, 8, '#f4ead2');
+}
+// local abandonné : poussière, toiles d'araignée, cartons
+function drawDust(){
+  ctx.fillStyle = 'rgba(112,100,88,.55)'; ctx.fillRect(7, 72, 346, 554);
+  ctx.strokeStyle = 'rgba(240,236,228,.75)'; ctx.lineWidth = 1;
+  [[7, 72, 1], [353, 72, -1]].forEach(([x, y, d]) => {
+    for (let r = 12; r <= 36; r += 12) { ctx.beginPath(); ctx.arc(x, y, r, d > 0 ? 0 : Math.PI / 2, d > 0 ? Math.PI / 2 : Math.PI); ctx.stroke(); }
+    for (let a = 0; a <= 3; a++) { const ang = (d > 0 ? 0 : Math.PI / 2) + a * Math.PI / 6; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(ang) * 40, y + Math.sin(ang) * 40); ctx.stroke(); }
+  });
+  [[70, 300], [96, 318], [280, 520], [60, 560], [300, 380]].forEach(([x, y]) => { rr(x - 14, y - 12, 28, 24, 2, '#a9875c', '#6b5236', 1.4); ctx.strokeStyle = '#6b5236'; ctx.beginPath(); ctx.moveTo(x - 14, y - 4); ctx.lineTo(x + 14, y - 4); ctx.stroke(); });
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 0; i < 40; i++) { const x = (i * 97) % 340 + 10, y = 80 + ((i * 53) % 540); ctx.fillRect(x, y, 2, 2); }
+  rr(110, 474, 140, 30, 10, 'rgba(51,36,26,.75)'); text('Local à rénover', 180, 489, 11, '#fff6e8');
+}
+function drawCars(){
+  for (const k of cars) {
+    ctx.beginPath(); ctx.ellipse(k.x, k.y + 9, 26, 4, 0, 0, 7); ctx.fillStyle = 'rgba(40,25,15,.2)'; ctx.fill();
+    [-15, 15].forEach(dx => { circle(k.x + dx, k.y - 9, 4, '#111'); circle(k.x + dx, k.y + 9, 4, '#111'); });
+    rr(k.x - 26, k.y - 9, 52, 18, 8, k.color, '#111', 1.4);
+    rr(k.x - 10, k.y - 7, 22, 14, 4, '#3a4a58', '#111', 1);
+    ctx.fillStyle = '#d4af37'; ctx.fillRect(k.x + 22, k.y - 6, 2.5, 3); ctx.fillRect(k.x + 22, k.y + 3, 2.5, 3);
+  }
+}
+function drawSnow(){
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  for (const f of flakes) { ctx.beginPath(); ctx.arc(f.x, f.y, f.s, 0, 7); ctx.fill(); }
+}
+
+function drawWorkbench(o){
+  const st = S.ov[o.id], p = PRODUCTS[o.prod], on = unlocked(o);
+  if (o.kind === 'shelf') {
+    // étagère de la réserve : les articles livrés attendent d'être mis en rayon
+    const x = o.x;
+    if (!on) { ctx.setLineDash([4, 4]); rr(x - 30, 74, 60, 52, 6, 'rgba(51,36,26,.06)', 'rgba(51,36,26,.35)', 1.5); ctx.setLineDash([]); return; }
+    rr(x - 31, 74, 62, 54, 4, '#efe9df', '#5e5850', 2);
+    ctx.fillStyle = '#b8ae9f'; ctx.fillRect(x - 30, 99, 60, 2.5); ctx.fillRect(x - 30, 124, 60, 2.5);
+    for (let k = 0; k < st.out; k++) drawItem(o.prod, x - 21 + (k % 4) * 14, 89 + Math.floor(k / 4) * 24, .62);
+    rr(x - 13, 49, 26, 14, 5, '#f4ead2', '#33241a', 1); drawItem(o.prod, x, 56, .55);
+    if (st.prog > 0) { rr(x - 16, 132, 32, 4, 2, 'rgba(51,36,26,.25)'); rr(x - 16, 132, 32 * st.prog / p.time, 4, 2, '#d4af37'); }
+    return;
+  }
+  if (o.kind === 'sand') {
+    if (!on) { ctx.setLineDash([4, 4]); rr(312, 182, 40, 60, 8, 'rgba(51,36,26,.06)', 'rgba(51,36,26,.35)', 1.5); ctx.setLineDash([]); return; }
+    rr(312, 180, 40, 64, 6, '#c8955c', '#5e3d22', 2);
+    ctx.strokeStyle = '#a97742'; ctx.lineWidth = 1; [196, 212, 228].forEach(y => { ctx.beginPath(); ctx.moveTo(313, y); ctx.lineTo(351, y); ctx.stroke(); });
+    for (let k = 0; k < Math.min(st.in, 4); k++) drawItem(o.input, 332, 190 + k * 9, .6);
+    rr(338, 232, 12, 3, 1.5, '#c4c9cc', '#555', .8); rr(344, 231, 7, 5, 2, '#5e3d22');
+    if (st.prog > 0) { rr(316, 172, 32, 4, 2, 'rgba(51,36,26,.25)'); rr(316, 172, 32 * st.prog / p.time, 4, 2, '#f2b632'); }
+    for (let k = 0; k < st.out; k++) drawItem(o.prod, 292 - Math.floor(k / 4) * 12, 194 + (k % 4) * 11, .55);
+    text(CFG.text.sand, 332, 252, 7.5);
+    return;
+  }
+  // table du pâtissier
+  const x = o.x, y = o.y;
+  if (!on) { ctx.setLineDash([4, 4]); rr(x - 32, y - 13, 64, 26, 8, 'rgba(51,36,26,.06)', 'rgba(51,36,26,.35)', 1.5); ctx.setLineDash([]); return; }
+  rr(x - 32, y - 13, 64, 26, 6, '#f3e4e8', '#8a6a72', 2);
+  ctx.strokeStyle = 'rgba(138,106,114,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 20, y - 12); ctx.lineTo(x - 6, y + 12); ctx.moveTo(x + 8, y - 12); ctx.lineTo(x + 18, y + 12); ctx.stroke();
+  for (let k = 0; k < st.out; k++) drawItem(o.prod, x - 24 + (k % 4) * 11, y - 4 + Math.floor(k / 4) * 9, .5);
+  if (st.prog > 0) { rr(x - 16, y + 16, 32, 4, 2, 'rgba(51,36,26,.25)'); rr(x - 16, y + 16, 32 * st.prog / p.time, 4, 2, '#f2b632'); }
+  text(CFG.text.pat, x + 22, y + 22, 7.5);
+}
+function drawOven(o){
+  if (!isOven(o)) return drawWorkbench(o);
+  const st = S.ov[o.id], p = PRODUCTS[o.prod];
+  ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
+  if (!unlocked(o)) {
+    ctx.setLineDash([4, 4]); rr(-30, -26, 60, 52, 10, 'rgba(51,36,26,.06)', 'rgba(51,36,26,.35)', 1.5); ctx.setLineDash([]);
+    ctx.restore(); return;
+  }
+  // four en pierre
+  rr(-31, -27, 62, 54, 12, '#8f877b', '#4f4840', 2);
+  [[-22, -18, 14, 9], [-6, -20, 16, 8], [12, -17, 13, 9], [-25, -5, 9, 10], [17, -4, 10, 11], [-24, 9, 8, 10], [18, 10, 9, 9]]
+    .forEach(([x, y, w, h]) => rr(x, y, w, h, 3, '#a69e91'));
+  ctx.beginPath(); ctx.moveTo(-16, 22); ctx.lineTo(-16, 4); ctx.arc(0, 4, 16, Math.PI, 0); ctx.lineTo(16, 22); ctx.closePath();
+  ctx.fillStyle = '#2a1a14'; ctx.fill();
+  if (st.prog > 0) {
+    const g = .45 + .25 * Math.sin(tclock * 8);
+    ctx.fillStyle = 'rgba(255,150,60,' + g + ')'; ctx.fill();
+    rr(-16, 24, 32 * (st.prog / p.time), 3, 1.5, '#f2b632');
+  }
+  ctx.restore();
+  const lx = o.rot ? o.x + 4 : o.x, ly = o.rot ? o.y - 44 : o.y - 42;
+  rr(lx - 13, ly - 7, 26, 14, 5, '#f4ead2', '#33241a', 1); drawItem(o.prod, lx, ly, .55);
+  if (st.in > 0) {
+    const fx = o.rot ? o.x - 8 : o.x + 22, fy = o.rot ? o.y + 38 : o.y - 21;
+    drawItem(o.input, fx, fy, .55); text('×' + st.in, fx + 11, fy + 1, 8, o.rot ? '#33241a' : '#fff6e8');
+  }
+  const tx = o.rot ? o.x - 40 : o.x, ty = o.rot ? o.y : o.y + 34;
+  for (let k = 0; k < st.out; k++) {
+    const a = k % 4, b = Math.floor(k / 4);
+    if (o.rot) drawItem(o.prod, tx + b * 9, ty - 15 + a * 10, .55);
+    else drawItem(o.prod, tx - 15 + a * 10, ty + b * 9, .55);
+  }
+}
+
+function drawStations(){
+  const z = FLOUR_Z;
+  if (CFG.noRaw) text('Réserve', z.x, z.y, 10, 'rgba(51,36,26,.35)');
+  else if (!has('fournisseur')) {
+    // moulin à bras
+    circle(z.x, z.y, 25, '#8d867a', '#4d4740', 2);
+    circle(z.x, z.y, 17, '#c4bdb0', '#6d665c', 1.5);
+    ctx.save(); ctx.translate(z.x, z.y); ctx.rotate(moulinSpin);
+    ctx.strokeStyle = '#6d665c'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(16, 0); ctx.stroke(); }
+    rr(12, -3, 14, 6, 3, '#8a5523'); ctx.restore();
+    circle(z.x, z.y, 4, '#4d4740');
+    text('Moulin', z.x, z.y + 34, 8.5);
+    if (moulinProg > 0) { rr(z.x - 18, z.y - 36, 36, 5, 2.5, 'rgba(51,36,26,.25)'); rr(z.x - 18, z.y - 36, 36 * moulinProg / .6, 5, 2.5, '#f2b632'); }
+  } else {
+    // palette du meunier
+    rr(z.x - 26, z.y - 22, 52, 44, 5, '#a7774b', '#5e3d22', 2);
+    ctx.strokeStyle = '#8a5f3a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(z.x - 26, z.y); ctx.lineTo(z.x + 26, z.y); ctx.stroke();
+    for (let k = 0; k < Math.min(S.reserve, 8); k++) drawItem(RAW, z.x - 16 + (k % 4) * 11, z.y - 10 + Math.floor(k / 4) * 18, .7);
+    text(CFG.text.source + ' ' + S.reserve, z.x, z.y + 32, 8.5);
+  }
+  // poubelle
+  const t = TRASH_Z;
+  rr(t.x - 12, t.y - 12, 24, 26, 4, '#6f7a80', '#3a4246', 1.6);
+  rr(t.x - 14, t.y - 15, 28, 6, 3, '#59636a', '#3a4246', 1.4);
+  ctx.strokeStyle = '#4d565b'; ctx.lineWidth = 1.2; [-5, 0, 5].forEach(dx => { ctx.beginPath(); ctx.moveTo(t.x + dx, t.y - 5); ctx.lineTo(t.x + dx, t.y + 10); ctx.stroke(); });
+  text('Poubelle', t.x - 2, t.y + 24, 7.5);
+  OVENS.forEach(drawOven);
+  // tas d'argent
+  if (S.cash > 0) {
+    const n = Math.min(18, Math.ceil(S.cash / 2));
+    for (let k = 0; k < n; k++) {
+      const col = k % 3, lvl = Math.floor(k / 3);
+      const x = CASH_Z.x - 10 + col * 10, y = CASH_Z.y + 6 - lvl * 3;
+      ctx.beginPath(); ctx.ellipse(x, y, 6, 3.4, 0, 0, 7); ctx.fillStyle = '#f2b632'; ctx.fill();
+      ctx.strokeStyle = '#8a6410'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    rr(CASH_Z.x - 20, CASH_Z.y - 34, 40, 15, 7, '#fff6e8', '#33241a', 1);
+    text(S.cash + ' €', CASH_Z.x, CASH_Z.y - 26.5, 8.5);
+  } else {
+    ctx.setLineDash([3, 3]); rr(CASH_Z.x - 18, CASH_Z.y - 12, 36, 24, 8, null, 'rgba(51,36,26,.25)', 1); ctx.setLineDash([]);
+    text('€', CASH_Z.x, CASH_Z.y, 10, 'rgba(51,36,26,.3)');
+  }
+}
+
+function wrapLabel(s, maxChars){
+  const words = s.split(' '), lines = []; let cur = '';
+  for (const w of words) { if ((cur + ' ' + w).trim().length > maxChars && cur) { lines.push(cur); cur = w; } else cur = (cur + ' ' + w).trim(); }
+  lines.push(cur); return lines.slice(0, 2);
+}
+function drawPads(){
+  for (const u of visiblePads()) {
+    const paid = S.paid[u.id] || 0, f = paid / u.price, x = u.x - 28, y = u.y - 22;
+    const can = S.money >= u.price - paid - .5;
+    const pulse = can ? 1 + .04 * Math.sin(tclock * 6) : 1;
+    ctx.save(); ctx.translate(u.x, u.y); ctx.scale(pulse, pulse); ctx.translate(-u.x, -u.y);
+    rr(x, y, 56, 44, 9, 'rgba(255,246,232,.93)');
+    ctx.save(); ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, 56, 44, 9); else ctx.rect(x, y, 56, 44); ctx.clip();
+    ctx.fillStyle = 'rgba(242,182,50,.65)'; ctx.fillRect(x, y + 44 * (1 - f), 56, 44 * f); ctx.restore();
+    ctx.setLineDash([5, 3]); rr(x, y, 56, 44, 9, null, can ? '#c9762b' : 'rgba(51,36,26,.55)', 2); ctx.setLineDash([]);
+    const lines = wrapLabel(u.name, 12);
+    lines.forEach((l, i) => text(l, u.x, y + 9 + i * 9, 7.2));
+    text(u.sub, u.x, y + 9 + lines.length * 9, 5.8, 'rgba(51,36,26,.7)', 400);
+    text(Math.ceil(u.price - paid) + ' €', u.x, y + 37, 9, '#8a5523');
+    ctx.restore();
+  }
+}
+
+function drawPerson(e, opt){
+  const bob = e.walk ? Math.sin(e.walk * 14) * 1.2 : 0;
+  ctx.beginPath(); ctx.ellipse(e.x, e.y + 2, 10, 4, 0, 0, 7); ctx.fillStyle = 'rgba(40,25,15,.22)'; ctx.fill();
+  circle(e.x, e.y - 8 + bob, 9.5, opt.body, '#33241a', 1.4);
+  if (opt.apron) rr(e.x - 5.5, e.y - 12 + bob, 11, 12, 3, opt.apron, '#33241a', 1);
+  if (opt.scarf) rr(e.x - 7, e.y - 16 + bob, 14, 4, 2, opt.scarf);
+  circle(e.x, e.y - 21 + bob, 7, opt.face || '#f1c9a5', '#33241a', 1.4);
+  if (opt.toque) { circle(e.x - 4, e.y - 30 + bob, 4.5, '#fff', '#33241a', 1); circle(e.x + 4, e.y - 30 + bob, 4.5, '#fff', '#33241a', 1); circle(e.x, e.y - 33 + bob, 5, '#fff', '#33241a', 1); rr(e.x - 6, e.y - 29 + bob, 12, 4, 1, '#fff'); }
+  else if (opt.cap) { ctx.beginPath(); ctx.arc(e.x, e.y - 23 + bob, 7, Math.PI, 0); ctx.fillStyle = opt.cap; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1.2; ctx.stroke(); rr(e.x - 1, e.y - 25 + bob, 10, 3, 1.5, opt.cap); }
+  else if (opt.bonnet) { ctx.beginPath(); ctx.arc(e.x, e.y - 23 + bob, 7.4, Math.PI, 0); ctx.fillStyle = opt.bonnet; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1.2; ctx.stroke(); circle(e.x, e.y - 31 + bob, 2.6, '#fff', '#33241a', 1); }
+  if (e.stack) e.stack.forEach((t, i) => drawItem(t, e.x, e.y - 44 - i * 5.5 + bob - (opt.toque ? 4 : 0), .62));
+}
+
+function bubble(x, y, draw, warn){
+  rr(x - 16, y - 11, 32, 20, 8, '#fff', warn ? '#c8433a' : '#33241a', warn ? 1.8 : 1.2);
+  ctx.beginPath(); ctx.moveTo(x - 3, y + 9); ctx.lineTo(x, y + 14); ctx.lineTo(x + 3, y + 9); ctx.fillStyle = '#fff'; ctx.fill();
+  draw();
+}
+// symbole de colère (veine rouge) au-dessus de la tête
+function anger(x, y){
+  const s = 1 + .12 * Math.sin(tclock * 10);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.strokeStyle = '#d93a2f'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); ctx.beginPath(); ctx.arc(3.6, 3.6, 3, Math.PI, Math.PI * 1.5); ctx.stroke(); }
+  ctx.restore();
+}
+function drawCustomer(c){
+  const mad = (c.state === 'shop' && c.pat < 18) || (c.state === 'queue' && c.wait > 20) || (c.state === 'leave' && c.mood === 'angry');
+  drawPerson(c, { body:c.coat, bonnet:c.hat, scarf:c.hat, face:mad ? '#f0a38c' : null });
+  const by = c.y - 48;
+  if (mad && c.y < 640) anger(c.x + 12, c.y - 30);
+  if (c.browse && c.state === 'shop') { bubble(c.x, by, () => text('?', c.x, by + .5, 12, '#7d8590')); return; }
+  if (c.state === 'refused') { bubble(c.x, by, () => text('Non', c.x, by + .5, 9, '#c8433a'), true); return; }
+  if (c.state === 'shop' || (c.state === 'enter' && c.y < 640)) {
+    bubble(c.x, by, () => { drawItem(c.want, c.x - 6, by - 1, .6); text((c.qty - c.got) + '', c.x + 9, by, 8.5); }, c.state === 'shop' && c.pat < 18);
+  } else if (c.state === 'queue' && queue[0] === c && !manned()) {
+    const s = 1 + .08 * Math.sin(tclock * 8);
+    bubble(c.x, by, () => { ctx.save(); ctx.translate(c.x, by); ctx.scale(s, s); circle(0, 0, 6, '#f2b632', '#8a6410', 1); text('€', 0, .5, 7, '#8a6410'); ctx.restore(); }, c.wait > 20);
+  } else if (c.state === 'eat') {
+    const t = TABLES[SEATS[c.seat].table];
+    drawItem(c.want, t.x + SEATS[c.seat].side * 5, t.y - 2, .45);
+  } else if (c.state === 'leave' && c.mood === 'thief' && c.y < 640) {
+    bubble(c.x, by, () => text('!', c.x, by + .5, 13, '#c8433a'), true);
+    drawItem(c.want, c.x + 11, c.y - 10, .6);
+  } else if (c.state === 'leave' && c.mood === 'happy' && c.y < 610) {
+    ctx.save(); ctx.translate(c.x, by + 4); ctx.fillStyle = '#d9534f'; ctx.beginPath();
+    ctx.moveTo(0, 4); ctx.bezierCurveTo(-7, -2, -3, -7, 0, -3); ctx.bezierCurveTo(3, -7, 7, -2, 0, 4); ctx.fill(); ctx.restore();
+  } else if (c.state === 'leave' && c.mood === 'sad' && c.y < 610) {
+    text('…', c.x, by + 2, 12, '#5a4636');
+  }
+}
+
+function drawArrow(target){
+  if (!target) return;
+  const y = target.y - (target.h ? target.h / 2 : 22) - 14 + Math.sin(tclock * 5) * 4;
+  ctx.beginPath(); ctx.moveTo(target.x, y + 8); ctx.lineTo(target.x - 8, y - 4); ctx.lineTo(target.x - 3, y - 4); ctx.lineTo(target.x - 3, y - 12);
+  ctx.lineTo(target.x + 3, y - 12); ctx.lineTo(target.x + 3, y - 4); ctx.lineTo(target.x + 8, y - 4); ctx.closePath();
+  ctx.fillStyle = '#f2b632'; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+let curHint = null;
+function draw(){
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#24303a'; ctx.fillRect(0, 0, cvs.width, cvs.height);
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * ox, dpr * oy);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+  ctx.translate(180, 360); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+  if (MIRROR) { ctx.translate(360, 0); ctx.scale(-1, 1); }
+  drawRoom(); drawStations(); drawCars();
+  if (!isOpen()) drawDust();
+  drawPads();
+  const ents = [];
+  customers.forEach(c => { if (!c.hidden) ents.push({ y:c.y, f:() => drawCustomer(c) }); });
+  workers.forEach(w => ents.push({ y:w.y, f:() => drawPerson(w,
+    w.role === 'mitron' ? { body:'#8a8f96', apron:'#fffaf0', toque:true }
+    : w.role === 'serveur' ? (CFG.luxe ? { body:'#f4efe6', apron:'#1f1f1f', cap:'#1f1f1f' } : { body:'#2c3036', apron:'#fffaf0', cap:'#2c3036' })
+    : CFG.luxe ? { body:'#1f1f1f', apron:'#d4af37', cap:'#1f1f1f' } : { body:'#3f6b8f', apron:'#fffaf0', toque:true }) }));
+  if (has('apprenti')) { const a = { x:338, y:410 }; ents.push({ y:a.y, f:() => drawPerson(a, CFG.luxe ? { body:'#1f1f1f', apron:'#f4efe6', cap:'#1f1f1f' } : { body:'#3f6b4f', apron:'#fffaf0', cap:'#c9762b' }) }); }
+  if (has('patissier')) { const a = { x:185, y:228, walk:tclock * .4 }; ents.push({ y:a.y, f:() => drawPerson(a, CFG.luxe ? { body:'#7a5a8a', apron:'#f4efe6', cap:'#d4af37' } : { body:'#d36f9a', apron:'#fffaf0', toque:true }) }); }
+  if (inspector) { const e = inspector; ents.push({ y:e.y, f:() => {
+    drawPerson(e, { body:'#4a4f57', cap:'#2c3036' });
+    rr(e.x + 7, e.y - 10, 9, 7, 1.5, '#5e3b22', '#2c1a10', 1);
+    if (e.state === 'check') bubble(e.x, e.y - 48, () => { rr(e.x - 5, e.y - 55, 10, 13, 1.5, '#fff6e8', '#33241a', 1); ctx.fillStyle = '#7d8590'; [-51, -48, -45].forEach(y => ctx.fillRect(e.x - 3, e.y + y, 6, 1.2)); });
+    text('URSSAF', e.x, e.y + 11, 6.5, '#2c3036');
+  } }); }
+  if (CFG.luxe && has('vigile')) { const v = { x:216, y:606 }; ents.push({ y:v.y, f:() => { drawPerson(v, { body:'#151515', cap:'#151515' }); rr(v.x - 5, v.y - 23, 10, 3, 1.5, '#000'); } }); }
+  ents.push({ y:player.y, f:() => drawPerson(player, CFG.luxe ? { body:'#2b2b2b', apron:'#d4af37', toque:true } : { body:'#c9762b', apron:'#fffaf0', toque:true }) });
+  ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
+  drawSnow();
+  if (player.stack.length >= player.cap) text('plein', player.x, player.y + 12, 7.5, '#c8433a');
+  for (const f of floats) {
+    ctx.globalAlpha = 1 - f.t / 1.2; text(f.text, f.x, f.y - f.t * 30, 11, f.color); ctx.globalAlpha = 1;
+  }
+  if (curHint && !(inspector && inspector.cine) && !(workers.length && curHint[1] !== CASH_Z && curHint[1] !== CAISSE_Z && curHint[1] !== TRASH_Z)) drawArrow(curHint[1]);
+  ctx.restore();
+  if (joy.on) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    circle(joy.bx, joy.by, joy.R, 'rgba(255,246,232,.18)', 'rgba(255,246,232,.6)', 2);
+    circle(joy.bx + joy.dx, joy.by + joy.dy, 22, 'rgba(255,246,232,.85)', '#33241a', 2);
+  }
+}
+
+// ---------- HUD ----------
+const moneyTxt = document.getElementById('moneyTxt'), hintEl = document.getElementById('hint'), menuBtn = document.getElementById('menuBtn');
+let lastMoney = -1, lastHint = '';
+const starsEl = document.getElementById('stars');
+let lastStars = '';
+const shopBtn = document.getElementById('shopBtn'), shopPanel = document.getElementById('shopPanel'), shopList = document.getElementById('shopList');
+const SHOP_ORDER = ['boulangerie', 'pizzeria', 'luxe'];
+function renderShops(){
+  shopList.innerHTML = SHOP_ORDER.filter(id => GAME.shops[id]).map(id => {
+    const st = GAME.shops[id], pend = Math.floor(GAME.pending[id] || 0), here = id === SHOP_ID;
+    const info = SHOPS[id].text.short + (here ? ' · tu es ici' : pend ? ' · ' + pend + ' € à récupérer' + (pend >= SHOPS[id].passiveCap ? ' (plein)' : '') : '');
+    return '<div class="upg"><div class="txt"><b>' + (st.name || SHOPS[id].text.defaultName) + '</b><small>' + info + '</small></div>'
+      + (here ? '<button type="button" disabled>Ici</button>' : '<button type="button" data-shop="' + id + '">Y aller</button>') + '</div>';
+  }).join('');
+  shopList.querySelectorAll('[data-shop]').forEach(b => b.onclick = () => { shopPanel.hidden = true; paused = false; last = performance.now(); switchShop(b.dataset.shop); });
+}
+shopBtn.onclick = () => {
+  audioOn();
+  if (inspector) { toast('Attends la fin du contrôle de l\'URSSAF'); return; }
+  paused = true; shopPanel.hidden = false; renderShops();
+};
+document.getElementById('shopClose').onclick = () => { shopPanel.hidden = true; paused = false; last = performance.now(); };
+let lastShopTxt = '';
+function hud(){
+  shopBtn.hidden = Object.keys(GAME.shops).length < 2;
+  if (!shopBtn.hidden) {
+    const pend = Object.keys(GAME.shops).filter(id => id !== SHOP_ID).reduce((a, id) => a + Math.floor(GAME.pending[id] || 0), 0);
+    const html = 'Mes commerces<small>' + (pend ? pend + ' € à récupérer' : 'changer de commerce') + '</small>';
+    if (html !== lastShopTxt) { lastShopTxt = html; shopBtn.innerHTML = html; }
+  }
+  const r = Math.round(S.rating * 10) / 10, full = Math.round(S.rating);
+  const key = r.toFixed(1);
+  if (key !== lastStars) {
+    lastStars = key;
+    starsEl.innerHTML = '<span class="st">★</span> ' + key.replace('.', ',');
+    starsEl.title = full + ' étoiles sur 5';
+  }
+  const m = Math.floor(S.money + 1e-6);
+  if (m !== lastMoney) { lastMoney = m; moneyTxt.textContent = m + ' €'; }
+  curHint = hint();
+  if (curHint[0] !== lastHint) { lastHint = curHint[0]; hintEl.textContent = lastHint; }
+}
+
+// ---------- Menu ----------
+const panel = document.getElementById('panel'), soundBtn = document.getElementById('soundBtn'), resetZone = document.getElementById('resetZone');
+const speedBtn = document.getElementById('speedBtn');
+let paused = false;
+function resetButton(){
+  resetZone.innerHTML = '<button type="button" id="resetBtn" class="danger" style="width:100%">Recommencer la partie</button>';
+  document.getElementById('resetBtn').onclick = () => {
+    resetZone.innerHTML = '<p style="margin-bottom:8px">Tout effacer et repartir de zéro ?</p><div class="two"><button type="button" id="noBtn">Annuler</button><button type="button" id="yesBtn" class="danger">Oui, effacer</button></div>';
+    document.getElementById('noBtn').onclick = resetButton;
+    document.getElementById('yesBtn').onclick = () => {
+      try { localStorage.removeItem(KEY); } catch(e){}
+      GAME = newGame(); player.stack = []; cineOn(false); enterShop('boulangerie', true);
+      save(); closeMenu(); askName();
+    };
+  };
+}
+function stats(){ document.getElementById('stats').textContent = 'Note : ' + S.rating.toFixed(1).replace('.', ',') + ' / 5 (' + S.reviews + ' avis) · Produits vendus : ' + S.sold + ' · Achats : ' + UPG.filter(u => has(u.id)).length + ' / ' + UPG.length; }
+function openMenu(){ paused = true; panel.hidden = false; resetButton(); stats(); }
+function closeMenu(){ paused = false; panel.hidden = true; last = performance.now(); }
+menuBtn.onclick = () => { audioOn(); openMenu(); };
+document.getElementById('closeBtn').onclick = closeMenu;
+soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = 'Son : ' + (muted ? 'coupé' : 'activé'); try { localStorage.setItem(KEY + '-mute', muted ? '1' : '0'); } catch(e){} };
+try { muted = localStorage.getItem(KEY + '-mute') === '1'; soundBtn.textContent = 'Son : ' + (muted ? 'coupé' : 'activé'); } catch(e){}
+// Mode test : argent et vitesse
+document.getElementById('cash100').onclick = () => { S.money += 100; save(); toast('+100 € (mode test)'); };
+document.getElementById('cash1000').onclick = () => { S.money += 1000; save(); toast('+1 000 € (mode test)'); };
+// le mode test est caché : 5 touches rapides sur le titre du menu l'affichent ou le cachent
+let titleTaps = 0, titleTapT = 0;
+document.getElementById('menuTitle').addEventListener('click', () => {
+  const now = performance.now();
+  titleTaps = now - titleTapT < 600 ? titleTaps + 1 : 1; titleTapT = now;
+  if (titleTaps >= 5) { titleTaps = 0; const c = document.getElementById('cheat'); c.hidden = !c.hidden; }
+});
+speedBtn.onclick = () => setSpeed(gameSpeed === 4 ? 1 : 4);
+
+// ---------- Boucle ----------
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (!paused) {
+    for (let i = 0; i < gameSpeed; i++) {
+      tclock += dt;
+      if (inspector && inspector.cine) { updateInspector(dt); updateFloats(dt); continue; }
+      updatePlayer(dt); updateWorkers(dt); updateCustomers(dt); updateCars(dt); updateInspector(dt); updateWorld(dt); updatePassive(dt);
+    }
+    updateCam(dt);
+    saveT += dt; if (saveT > 4) { saveT = 0; save(); }
+  }
+  hud(); draw();
+  requestAnimationFrame(frame);
+}
+addEventListener('pagehide', save);
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else last = performance.now(); });
+
+// ---------- Case Améliorations ----------
+const upPanel = document.getElementById('upPanel'), upList = document.getElementById('upList'), upDot = document.getElementById('upDot');
+const staffCount = () => workers.length + (has('apprenti') ? 1 : 0);
+function upgradeRows(){
+  return Object.entries(LEVELS).map(([k, L]) => {
+    const l = lvObj(k)[k] || 0, max = l >= L.prices.length, locked = L.staff && !staffCount();
+    return { k, L, l, max, locked, price:max ? 0 : L.prices[l] * (L.staff ? CFG.priceMul : 1) };
+  });
+}
+function renderUpgrades(){
+  upList.innerHTML = upgradeRows().map(r => {
+    const bars = r.L.vals.map((_, i) => '<i class="' + (i <= r.l ? 'on' : '') + '"></i>').join('');
+    const next = r.max ? 'Niveau maximum' : r.locked ? 'Engage d\'abord un employé' : 'Prochain : ' + r.L.desc(r.L.vals[r.l + 1]);
+    const btn = r.max ? '<button type="button" disabled>Max</button>'
+      : '<button type="button" data-k="' + r.k + '"' + (r.locked || S.money < r.price ? ' disabled' : '') + '>' + r.price + ' €</button>';
+    return '<div class="upg"><div class="txt"><b>' + r.L.name + '</b><small>' + r.L.desc(r.L.vals[r.l]) + '</small><small>' + next + '</small><div class="lvl">' + bars + '</div></div>' + btn + '</div>';
+  }).join('');
+  upList.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+    const r = upgradeRows().find(x => x.k === b.dataset.k);
+    if (!r || r.max || r.locked || S.money < r.price) return;
+    S.money -= r.price; lvObj(r.k)[r.k] = r.l + 1; applyUpgrades(); fanfare(); save(); renderUpgrades();
+  });
+}
+document.getElementById('upBtn').onclick = () => { audioOn(); paused = true; upPanel.hidden = false; renderUpgrades(); };
+document.getElementById('upClose').onclick = () => { upPanel.hidden = true; paused = false; last = performance.now(); };
+// petit point rouge quand une amélioration est abordable
+setInterval(() => { if (S) upDot.hidden = !upgradeRows().some(r => !r.max && !r.locked && S.money >= r.price); }, 500);
+
+// ---------- Vitesse x1 / x2 ----------
+const speedHud = document.getElementById('speedHud');
+function setSpeed(v){
+  gameSpeed = v;
+  speedHud.textContent = 'x' + v; speedHud.classList.toggle('fast', v > 1);
+  speedBtn.textContent = 'Vitesse test : x' + v;
+}
+speedHud.onclick = () => { audioOn(); setSpeed(gameSpeed === 1 ? 2 : 1); };
+
+const namePanel = document.getElementById('namePanel'), nameInput = document.getElementById('nameInput');
+function askName(){
+  paused = true; panel.hidden = true; namePanel.hidden = false; nameInput.value = S.name || '';
+  document.getElementById('nameTitle').textContent = CFG.text.ask;
+  document.getElementById('nameGo').textContent = CFG.text.go;
+  nameInput.placeholder = CFG.text.ideas[0];
+  const ideas = document.getElementById('nameIdeas');
+  ideas.innerHTML = CFG.text.ideas.map(n => '<button type="button">' + n + '</button>').join('');
+  ideas.querySelectorAll('button').forEach(b => b.onclick = () => { nameInput.value = b.textContent; });
+  setTimeout(() => { try { nameInput.focus(); } catch(e){} }, 50);
+}
+document.getElementById('nameForm').addEventListener('submit', e => {
+  e.preventDefault();
+  S.name = nameInput.value.trim().slice(0, 24) || CFG.text.ideas[0];
+  namePanel.hidden = true; nameInput.blur(); paused = false; last = performance.now(); save();
+  toast('Bienvenue à « ' + S.name + ' » !');
+});
+document.getElementById('renameBtn').onclick = askName;
+function start(data){
+  load(data);
+  if (!S.name) askName();
+  try { window.claude?.hot?.snapshot?.(snapshot); } catch(e){}
+  requestAnimationFrame(t => { last = t; frame(t); });
+}
+const hot = window.claude?.hot;
+if (hot?.ready) hot.ready(start); else start(hot?.data ?? null);
+})();
+</script>
+
+<script>
+// fonctionne aussi sans connexion une fois ouvert une première fois
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
