@@ -69,13 +69,15 @@ body.cine #cineTop,body.cine #cineBot{height:11vh}
 #cineCap{position:fixed;left:50%;top:calc(11vh + 14px);transform:translateX(-50%);background:#c8433a;color:#fff;font-weight:800;font-size:18px;
   padding:8px 16px;border-radius:12px;border:2px solid #111;opacity:0;transition:opacity .3s;pointer-events:none;z-index:5;white-space:nowrap}
 body.cine #cineCap{opacity:1}
+body.cine.influ #cineCap{background:#f58bb0;border-color:#8a3a58}
+.panel .quote{font-size:17px;font-style:italic;line-height:1.4}
 body.cine #hud,body.cine #upBtn,body.cine #shopBtn,body.cine #toast{opacity:0;pointer-events:none}
 #upBtn{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
   font:inherit;font-size:15px;font-weight:800;color:var(--ink);background:var(--cream);border:2px solid var(--ink);border-radius:16px;
   box-shadow:0 3px 0 var(--ink);padding:9px 14px;cursor:pointer}
 #upDot{position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;background:#c8433a;border:2px solid var(--ink)}
 #upBtn:focus-visible,#speedHud:focus-visible{outline:3px solid var(--crust);outline-offset:2px}
-#upPanel,#shopPanel{position:fixed;inset:0;background:rgba(36,48,58,.6);display:flex;align-items:center;justify-content:center;padding:0 max(16px,env(safe-area-inset-left,0px))}
+#upPanel,#shopPanel,#refundPanel{position:fixed;inset:0;background:rgba(36,48,58,.6);display:flex;align-items:center;justify-content:center;padding:0 max(16px,env(safe-area-inset-left,0px))}
 .upg{display:flex;align-items:center;gap:10px;border:2px solid var(--ink);border-radius:14px;background:#fff;padding:9px 10px}
 .upg + .upg{margin-top:8px}
 .upg .txt{flex:1;min-width:0}
@@ -127,6 +129,13 @@ body.cine #hud,body.cine #upBtn,body.cine #shopBtn,body.cine #toast{opacity:0;po
     <h2>Mes commerces</h2>
     <div id="shopList"></div>
     <button type="button" id="shopClose" class="go">Rester ici</button>
+  </div>
+</div>
+<div id="refundPanel" hidden>
+  <div class="panel" role="dialog" aria-label="Demande de remboursement">
+    <h2 id="refundTitle"></h2>
+    <p id="refundReason" class="quote"></p>
+    <div class="two"><button type="button" id="refundYes" class="go">Rembourser</button><button type="button" id="refundNo" class="danger">Refuser</button></div>
   </div>
 </div>
 <div id="upPanel" hidden>
@@ -257,7 +266,7 @@ const SHOPS = {
     order:['sac','robe','chaussures','sacgrave','parfum'],
     ovens:makeOvens(null, ['sac','robe','chaussures','sacgrave','parfum'], 'shelf'),
     raw:null, noRaw:true, luxe:true, mirror:false, locked:true, patSelf:true, pickTime:1.1, payTime:1.5,
-    passiveMul:18, passiveCap:9000, priceMul:20,
+    passiveMul:18, passiveCap:9000, priceMul:20, next:'beaute',
     arrive:'Tu as racheté la boutique de luxe. Aménage-la pour ouvrir !',
     start:{ bought:['fournisseur'], reserve:0, vit:{}, oven:0 },
     upg:[
@@ -274,6 +283,7 @@ const SHOPS = {
       { id:'serveur',    name:'Hôtesse',              sub:'range les cabines',     price:3000, x:185, y:330, after:['tables'],      msg:'L\'hôtesse range les vêtements laissés en cabine' },
       { id:'enseigne',   name:'Défilé de mode',       sub:'plus de clients',       price:6000, x:115, y:215, after:['serveur','voiturier'], msg:'Le défilé fait venir toute la station' },
       { id:'renovation', name:'Façade en marbre',     sub:'la touche finale',      price:9000, x:185, y:330, after:['enseigne'],    msg:'Façade en marbre : ta maison de luxe est la plus chic des Alpes !' },
+      { id:'local',      name:'Racheter la parfumerie', sub:'cosmétiques et soins', price:12000, x:185, y:330, after:['renovation'], msg:'' },
     ],
     theme:{ kitchen:['#d5d7d9','#bfc3c6'], kitchenReno:['#e2e4e6','#cdd0d3'], shop:'marble', shopCol:['#f3efe8','#cfc8bd'], shopReno:['#faf7f2','#d8cfbf'], signLit:'#d4af37', rug:'#1f1f1f' },
     text:{ defaultName:'Boutique', ask:'Comment s\'appelle ta boutique de luxe ?', go:'Ouvrir ma boutique',
@@ -281,24 +291,75 @@ const SHOPS = {
       sandTo:'Apporte des sacs à l\'atelier gravure', sand:'Gravure', pat:'Parfums', toVit:'Mets les articles en rayon',
       final:'Ta maison de luxe brille sur toute la station !', short:'Boutique de luxe' },
   },
+  beaute: {
+    products:{
+      skincare:  { name:'Soin coréen', plural:'soins coréens',       price:35, time:1.6, need:1 },
+      maquillage:{ name:'Maquillage', plural:'maquillages',          price:30, time:1.6, need:1 },
+      cheveux:   { name:'Shampoing', plural:'shampoings',            price:20, time:1.4, need:1 },
+      corps:     { name:'Lotion corps', plural:'lotions corps',      price:25, time:1.4, need:1 },
+      coffret:   { name:'Coffret cadeau', plural:'coffrets cadeaux', price:90, time:2.4, need:1 },
+    },
+    order:['skincare','maquillage','cheveux','corps','coffret'],
+    // réserve fermée en haut : une étagère par produit ; le comptoir coffrets transforme les soins coréens
+    ovens:[
+      { id:'sk', kind:'shelf', input:null, prod:'skincare',   x:50,  y:98, rot:0, unlock:null,           zone:{x:50, y:152,w:60,h:36} },
+      { id:'mq', kind:'shelf', input:null, prod:'maquillage', x:120, y:98, rot:0, unlock:'r_maquillage', zone:{x:120,y:152,w:60,h:36} },
+      { id:'ch', kind:'shelf', input:null, prod:'cheveux',    x:240, y:98, rot:0, unlock:'r_cheveux',    zone:{x:240,y:152,w:60,h:36} },
+      { id:'co', kind:'shelf', input:null, prod:'corps',      x:310, y:98, rot:0, unlock:'r_corps',      zone:{x:310,y:152,w:60,h:36} },
+      { id:'sandwich', kind:'sand', input:'skincare', prod:'coffret', x:332, y:380, rot:Math.PI/2, unlock:'coffret', zone:{x:292,y:380,w:44,h:58} },
+    ],
+    raw:null, noRaw:true, selfServe:true, beauty:true, makeup:true, thief:true, reserveWall:true, vitCap:10,
+    mirror:false, locked:true, patSelf:true, payTime:.9, passiveMul:12, passiveCap:6000, priceMul:12,
+    arrive:'Tu as racheté la parfumerie. Rénove-la pour ouvrir !',
+    start:{ bought:['fournisseur'], reserve:0, vit:{ skincare:4 }, oven:0 },
+    gondolas:{ skincare:{x:110,y:300}, maquillage:{x:250,y:300}, cheveux:{x:110,y:430}, corps:{x:250,y:430}, coffret:{x:90,y:540} },
+    colors:{ skincare:'#8fd6c3', maquillage:'#e05a7a', cheveux:'#7fb3e0', corps:'#f3c99a', coffret:'#d36f9a' },
+    layout:{ caisse:{x:310,y:528,w:56,h:30}, cash:{x:330,y:490,w:48,h:44}, trash:{x:180,y:112,w:38,h:38}, q:i => [236, 604 - i * 22], app:{x:318,y:532}, srv:[60,490] },
+    seats:[250, 315, 380, 445].map((y, i) => ({ x:28, y, table:i, side:1 })),
+    upg:[
+      { id:'ouverture',   name:'Rénover le local',     sub:'rayons et éclairage',   price:2000,  x:180, y:365, after:[],               msg:'La parfumerie est prête : les clients se servent eux-mêmes' },
+      { id:'apprenti',    name:'Caissière',            sub:'tient la caisse',       price:1200,  x:180, y:250, after:['ouverture'],    msg:'La caissière encaisse les clients' },
+      { id:'vigile',      name:'Agent de sécurité',    sub:'moins de vols',         price:1800,  x:300, y:250, after:['apprenti'],     msg:'L\'agent de sécurité surveille : beaucoup moins de vols' },
+      { id:'r_maquillage',name:'Rayon maquillage',     sub:'nouveau rayon',         price:2400,  x:250, y:300, after:['vigile'],       msg:'Nouveau rayon : le maquillage !' },
+      { id:'boulanger',   name:'Employé de rayon',     sub:'remplit les rayons',    price:3000,  x:180, y:365, after:['r_maquillage'], msg:'L\'employé va en réserve et remplit les rayons' },
+      { id:'r_cheveux',   name:'Rayon cheveux',        sub:'nouveau rayon',         price:3600,  x:110, y:430, after:['boulanger'],    msg:'Nouveau rayon : les soins cheveux !' },
+      { id:'grandsrayons',name:'Grands rayons',        sub:'2 fois plus de place',  price:3600,  x:180, y:250, after:['r_cheveux'],    msg:'Les rayons contiennent deux fois plus d\'articles' },
+      { id:'r_corps',     name:'Rayon corps',          sub:'nouveau rayon',         price:4800,  x:250, y:430, after:['r_cheveux'],    msg:'Nouveau rayon : les soins du corps !' },
+      { id:'boulanger2',  name:'2e employé de rayon',  sub:'remplit les rayons',    price:4800,  x:180, y:365, after:['r_corps'],      msg:'Un deuxième employé remplit les rayons' },
+      { id:'tables',      name:'Atelier maquillage',   sub:'avec maquilleuse',      price:6000,  x:300, y:250, after:['boulanger2'],   msg:'La maquilleuse fait des séances à 60 € : certains clients s\'installent' },
+      { id:'portique',    name:'Portiques antivol',    sub:'bloquent les voleurs',  price:4800,  x:180, y:250, after:['tables','grandsrayons'], msg:'Les portiques sonnent : plus aucun voleur ne passe' },
+      { id:'coffret',     name:'Comptoir coffrets',    sub:'coffrets cadeaux',      price:7200,  x:292, y:380, after:['portique'],     msg:'Comptoir coffrets : apporte-lui des soins coréens' },
+      { id:'conseillere', name:'Conseillère beauté',   sub:'+1 article par client', price:7200,  x:300, y:250, after:['coffret'],      msg:'La conseillère donne envie : chaque client prend un article de plus' },
+      { id:'caisse2',     name:'2e caisse',            sub:'file deux fois plus rapide', price:6000, x:180, y:365, after:['conseillere'], msg:'Deuxième caisse ouverte : la file avance deux fois plus vite' },
+      { id:'renovation',  name:'Façade lumineuse',     sub:'la touche finale',      price:15000, x:180, y:365, after:['caisse2'],      msg:'Façade lumineuse : ta parfumerie brille sur toute la station !' },
+    ],
+    theme:{ kitchen:['#d9d6d3','#c8c4c0'], kitchenReno:['#e2dfdc','#d0ccc8'], shop:'planks', shopCol:['#f6e6ea','#e9cfd7'], shopReno:['#fbeef2','#f0d6de'], signLit:'#f58bb0', rug:'#e05a7a' },
+    text:{ defaultName:'Parfumerie', ask:'Comment s\'appelle ta parfumerie ?', go:'Ouvrir ma parfumerie',
+      ideas:['Éclat des Cimes','Glow Alpin','Beauté d\'Altitude'], source:'', putRaw:'', take:'', wait:'',
+      sandTo:'Apporte des soins coréens au comptoir coffrets', sand:'Coffrets', pat:'', toVit:'Mets les produits dans le bon rayon',
+      final:'Ta parfumerie est la plus glamour de la station !', short:'Parfumerie' },
+  },
 };
 SHOPS.pizzeria.arrive = SHOPS.pizzeria.arrive || '';
 let CFG = SHOPS.boulangerie, SHOP_ID = 'boulangerie';
 let PRODUCTS = CFG.products, PROD_ORDER = CFG.order, OVENS = CFG.ovens, UPG = CFG.upg, RAW = CFG.raw, MIRROR = false;
 const isOven = o => o.kind === 'four';
 const FLOUR_Z   = { x:46,  y:150, w:62,  h:58 };  // moulin, puis livraison du meunier au même endroit
-const TRASH_Z   = { x:334, y:292, w:38,  h:38 };
+let TRASH_Z     = { x:334, y:292, w:38,  h:38 };
 const VIT_Z     = { x:135, y:408, w:240, h:30 };
-const CAISSE_Z  = { x:310, y:408, w:56,  h:30 };
-const CASH_Z    = { x:300, y:350, w:48,  h:44 };
+let CAISSE_Z    = { x:310, y:408, w:56,  h:30 };
+let CASH_Z      = { x:300, y:350, w:48,  h:44 };
+const DEFAULT_LAYOUT = { caisse:CAISSE_Z, cash:CASH_Z, trash:TRASH_Z, q:i => [310, 494 + i * 24], app:{ x:338, y:410 }, srv:[300, 606] };
+let LAYOUT = DEFAULT_LAYOUT;
 const DOOR_IN   = { x:180, y:622 }, DOOR_OUT = { x:180, y:668 };
 const VSLOTS    = [34, 78, 122, 166, 210];
 const OV_IN_CAP = 6, OV_OUT_CAP = 8, VIT_CAP = 10, RES_CAP = 20;
 const THIEF_ODDS = 1 / 250;   // un client sur 250 part avec le pain sans payer
-const DINE_ODDS  = 1 / 4;     // une fois les tables achetées, un client sur 4 mange sur place
+const DINE_ODDS  = 1 / 4;
+let SEATS;     // une fois les tables achetées, un client sur 4 mange sur place
 // 3 tables rondes de 2 places dans la salle
 const TABLES = [{ x:62, y:572 }, { x:138, y:572 }, { x:214, y:572 }];
-const SEATS = TABLES.flatMap((t, i) => [{ x:t.x - 17, y:t.y + 2, table:i, side:-1 }, { x:t.x + 17, y:t.y + 2, table:i, side:1 }]);
+const DEFAULT_SEATS = TABLES.flatMap((t, i) => [{ x:t.x - 17, y:t.y + 2, table:i, side:-1 }, { x:t.x + 17, y:t.y + 2, table:i, side:1 }]);
 
 // Améliorations par niveaux, achetées dans la case « Améliorations » (perso : partout ; employés : par commerce)
 const LEVELS = {
@@ -309,12 +370,16 @@ const LEVELS = {
 };
 const lvObj = k => LEVELS[k].staff ? S.lv : GAME.lv;
 const lv = k => LEVELS[k].vals[lvObj(k)[k] || 0];
+const vitCap = () => (CFG.vitCap || VIT_CAP) * (has('grandsrayons') ? 2 : 1);
+const gzone = p => { const g = CFG.gondolas[p]; return { x:g.x, y:g.y + 26, w:88, h:26 }; };
+// vols : rares d'habitude ; à la parfumerie, fréquents tant qu'il n'y a pas d'agent de sécurité
+const theftOdds = () => CFG.thief ? (has('portique') ? .01 : has('vigile') ? .02 : .1) : (S.sold > 30 ? THIEF_ODDS : 0);
 
 // ---------- État ----------
 let S, GAME;
 function freshState(cfg){
   const ov = {}; cfg.ovens.forEach(o => ov[o.id] = { in:0, out:0, prog:0 });
-  ov.four_pain.in = cfg.start.oven;
+  if (ov.four_pain) ov.four_pain.in = cfg.start.oven;
   const vit = {}; cfg.order.forEach(p => vit[p] = cfg.start.vit[p] || 0);
   return { cash:0, bought:cfg.start.bought.slice(), paid:{}, vit, ov, reserve:cfg.start.reserve, sold:0, stack:[],
     lv:{ wspeed:0, wcap:0 }, name:'', rating:3.5, reviews:0, dirty:[] };
@@ -340,8 +405,9 @@ function applyUpgrades(){
   player.cap = lv('cap');
   player.speed = lv('speed');
   if (has('mitron') && !workers.some(w => w.role === 'mitron')) workers.push(makeWorker('mitron'));
-  if (has('boulanger') && !workers.some(w => w.role === 'boulanger')) workers.push(makeWorker('boulanger'));
-  if (has('serveur') && !workers.some(w => w.role === 'serveur')) workers.push(makeWorker('serveur'));
+  const runners = (has('boulanger') ? 1 : 0) + (has('boulanger2') ? 1 : 0);
+  while (workers.filter(w => w.role === 'boulanger').length < runners) workers.push(makeWorker('boulanger'));
+  if ((has('serveur') || (CFG.makeup && has('tables'))) && !workers.some(w => w.role === 'serveur')) workers.push(makeWorker('serveur'));
   for (const w of workers) w.cap = lv('wcap');
 }
 // entre dans un commerce : branche sa config, son état, et verse le revenu gagné pendant l'absence
@@ -349,15 +415,19 @@ function enterShop(id, quiet){
   SHOP_ID = id; GAME.current = id; CFG = SHOPS[id];
   PRODUCTS = CFG.products; PROD_ORDER = CFG.order; OVENS = CFG.ovens; UPG = CFG.upg; RAW = CFG.raw; MIRROR = CFG.mirror;
   S = GAME.shops[id]; attachWallet(S);
+  LAYOUT = CFG.layout || DEFAULT_LAYOUT; CAISSE_Z = LAYOUT.caisse; CASH_Z = LAYOUT.cash; TRASH_Z = LAYOUT.trash;
+  SEATS = CFG.seats || DEFAULT_SEATS;
   player.stack = (S.stack || []).filter(t => t === RAW || CFG.products[t]).slice(0, 12);
   player.x = 90; player.y = 372;
   workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5;
+  influT = rnd(360, 600); refundT = rnd(180, 300); boostT = 0; influCine = null; refundC = null; flashes = []; refundPanel.hidden = true;
   applyUpgrades(); lastStars = '';
   if (actx) Music.play(id);
   const got = Math.floor(GAME.pending[id] || 0);
   if (got > 0) { S.cash += got; GAME.pending[id] = 0; if (!quiet) toast('Pendant ton absence, ' + (S.name || CFG.text.short) + ' a gagné ' + got + ' € : ramasse-les à la caisse'); }
 }
 function switchShop(id){
+  if (refundC || influCine) return;
   if (inspector) { toast('Attends la fin du contrôle de l\'URSSAF'); return; }
   S.stack = player.stack.slice(); save();
   enterShop(id); save();
@@ -395,6 +465,8 @@ function load(data){
     GAME = { money:d.money || 0, lv:Object.assign({ cap:0, speed:0 }, d.lv), current:d.current || 'boulangerie', shops:{}, pending:d.pending || {} };
     for (const id in d.shops) if (SHOPS[id]) GAME.shops[id] = mergeShop(id, d.shops[id]);
     if (!GAME.shops.boulangerie) GAME.shops.boulangerie = freshState(SHOPS.boulangerie);
+    // commerce suivant déjà payé mais absent de la sauvegarde : on le recrée
+    for (const id in GAME.shops) { const nx = SHOPS[id].next; if (nx && GAME.shops[id].bought.includes('local') && !GAME.shops[nx]) GAME.shops[nx] = freshState(SHOPS[nx]); }
   } else {
     // ancienne sauvegarde (une seule boulangerie)
     GAME = newGame();
@@ -418,7 +490,7 @@ function load(data){
 
 // ---------- Son : musiques d'ambiance et bruitages, synthétisés en direct (aucun fichier) ----------
 let actx = null, lastBlip = 0, sfxBus = null, musicBus = null, musicOn = true;
-const MUSIC_VOL = .55;
+const MUSIC_VOL = .42;
 function audioOn(){
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ return; }
@@ -481,6 +553,12 @@ const sfx = {
     if (!sfxOk('sting', 1000)) return; const t = actx.currentTime;
     [[0, 55, .22], [.26, 55, .22], [.52, 51, .9]].forEach(([dt, m, d]) => { tone(t + dt, midiHz(m), d, .07, 'sawtooth'); tone(t + dt, midiHz(m - 12), d, .06, 'square'); });
   },
+  camera(){
+    if (!sfxOk('cam', 120)) return; const t = actx.currentTime;
+    const n = noise(), f = actx.createBiquadFilter(), g = actx.createGain(); f.type = 'highpass'; f.frequency.value = 2500;
+    g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); n.connect(f).connect(g).connect(sfxBus); n.start(t); n.stop(t + .06);
+  },
+  sparkle(){ if (!sfxOk('spk', 800)) return; const t = actx.currentTime; [1568, 1976, 2349, 3136].forEach((f, i) => tone(t + i * .07, f, .3, .035)); },
   refuse(){ if (!sfxOk('ref', 300)) return; tone(actx.currentTime, 180, .14, .04, 'square', 140); },
 };
 
@@ -490,6 +568,12 @@ function voice(t, d, v, a = .02, r = .1){
   g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a);
   g.gain.setValueAtTime(v, t + Math.max(a + .01, d - r)); g.gain.exponentialRampToValueAtTime(.0001, t + d + r);
   g.connect(musicBus); return g;
+}
+function bowed(t, m, d, v, cut, att){
+  const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cut; f.connect(voice(t, d, v, att, .3));
+  const lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 5; lg.gain.value = 6; lfo.connect(lg);
+  [-6, 6].forEach(c => { const o = actx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midiHz(m); o.detune.value = c; lg.connect(o.detune); o.connect(f); o.start(t); o.stop(t + d + .4); });
+  lfo.start(t); lfo.stop(t + d + .4);
 }
 const INST = {
   // accordéon : deux dents de scie désaccordées, filtrées, avec un léger vibrato
@@ -513,47 +597,119 @@ const INST = {
     const g = actx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d + .5); g.connect(musicBus);
     [[1, 1], [2, .22], [3, .08]].forEach(([k, a]) => { const o = actx.createOscillator(), og = actx.createGain(); o.frequency.value = midiHz(m) * k; og.gain.value = a; o.connect(og).connect(g); o.start(t); o.stop(t + d + .6); });
   },
+  // cordes frottées (quatuor) : attaque douce, vibrato
+  strings(t, m, d, v){ bowed(t, m, d, v, 1400, .3); },
+  violin(t, m, d, v){ bowed(t, m, d, v, 3200, .12); },
+  cello(t, m, d, v){ bowed(t, m, d, v, 700, .06); },
+  // clavecin : pincement brillant et sec
+  harpsi(t, m, d, v){
+    const g = actx.createGain(), f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(5200, t); f.frequency.exponentialRampToValueAtTime(1800, t + .3);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .003); g.gain.exponentialRampToValueAtTime(.0001, t + .45);
+    f.connect(g).connect(musicBus);
+    [['sawtooth', 1], ['square', .4]].forEach(([ty, a]) => { const o = actx.createOscillator(), og = actx.createGain(); o.type = ty; o.frequency.value = midiHz(m); og.gain.value = a; o.connect(og).connect(f); o.start(t); o.stop(t + .5); });
+  },
+  tamb(t, m, d, v){
+    const n = noise(), f = actx.createBiquadFilter(), g = actx.createGain(); f.type = 'bandpass'; f.frequency.value = 7000; f.Q.value = 1.5;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .14); n.connect(f).connect(g).connect(musicBus); n.start(t); n.stop(t + .16);
+  },
+  // boîte à rythmes pop
+  kick(t, m, d, v){
+    const o = actx.createOscillator(), g = actx.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .12);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .25); o.connect(g).connect(musicBus); o.start(t); o.stop(t + .3);
+  },
+  clap(t, m, d, v){
+    const n = noise(), f = actx.createBiquadFilter(), g = actx.createGain(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = .8;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .14); n.connect(f).connect(g).connect(musicBus); n.start(t); n.stop(t + .16);
+  },
+  synbass(t, m, d, v){
+    const o = actx.createOscillator(), f = actx.createBiquadFilter(); o.type = 'square'; o.frequency.value = midiHz(m);
+    f.type = 'lowpass'; f.frequency.value = 650; o.connect(f).connect(voice(t, d, v, .005, .04)); o.start(t); o.stop(t + d + .1);
+  },
+  stab(t, m, d, v){
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(900, t + .15);
+    f.connect(voice(t, Math.min(d, .16), v, .005, .06));
+    [-10, 10].forEach(c => { const o = actx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midiHz(m); o.detune.value = c; o.connect(f); o.start(t); o.stop(t + .3); });
+  },
+  lead(t, m, d, v){
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3200; f.connect(voice(t, d, v, .01, .08));
+    [['square', 1], ['sine', .8]].forEach(([ty, a], i) => { const o = actx.createOscillator(), og = actx.createGain(); o.type = ty; o.frequency.value = midiHz(m) * (i ? 2 : 1); og.gain.value = a; o.connect(og).connect(f); o.start(t); o.stop(t + d + .15); });
+  },
   hat(t, m, d, v){
     const n = noise(), f = actx.createBiquadFilter(), g = actx.createGain(); f.type = 'highpass'; f.frequency.value = 7500;
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); n.connect(f).connect(g).connect(musicBus); n.start(t); n.stop(t + .07);
   },
 };
 
-// ----- les trois morceaux (compositions originales, en boucle) -----
+// ----- les quatre morceaux (compositions originales, 16 mesures en boucle) -----
 // chaque morceau : durée d'un pas (s), nombre de pas, et la liste des notes [pas, instrument, notes midi, durée en pas, volume]
 function buildTracks(){
   const T = {};
-  // Boulangerie : valse musette à l'accordéon, en do majeur (3 temps, 2 pas par temps)
+  const add = (ev, s, i, ms, d, v) => ev.push([s, i, Array.isArray(ms) ? ms : [ms], d, v]);
+  // Boulangerie : valse musette à l'accordéon, façon bistrot parisien (do majeur, 3/4)
   {
-    const ev = [], chords = [[48, [60, 64, 67]], [43, [59, 62, 65]], [43, [59, 62, 65]], [48, [60, 64, 67]], [48, [60, 64, 67]], [41, [57, 60, 65]], [43, [59, 62, 65]], [48, [60, 64, 67]]];
-    chords.forEach(([b, c], bar) => { const s = bar * 6; ev.push([s, 'bass', [b], 1.8, .3], [s + 2, 'accordion', c, 1.2, .022], [s + 4, 'accordion', c, 1.2, .022]); });
-    [[0, 76, 1], [1, 79, 1], [2, 76, 1], [3, 74, 1.5], [4.5, 72, .5], [5, 71, 1], [6, 74, 1], [7, 77, 1], [8, 74, 1], [9, 72, 2], [11, 67, 1],
-     [12, 76, 1], [13, 79, 1], [14, 84, 1], [15, 81, 1.5], [16.5, 79, .5], [17, 77, 1], [18, 76, 1], [19, 74, 1], [20, 71, 1], [21, 72, 3]]
-      .forEach(([b, m, d]) => ev.push([b * 2, 'accordion', [m], d * 2 - .2, .05]));
-    T.boulangerie = { step:.27, steps:48, ev };
-  }
-  // Pizzeria : tarentelle à la mandoline, en la mineur (6/8)
-  {
-    const ev = [], chords = [[45, 52, [57, 60, 64]], [40, 47, [56, 59, 62]], [40, 47, [56, 59, 62]], [45, 52, [57, 60, 64]], [45, 52, [57, 60, 64]], [38, 45, [57, 62, 65]], [40, 47, [56, 59, 62]], [45, 52, [57, 60, 64]]];
-    chords.forEach(([r, f5, c], bar) => { const s = bar * 6; ev.push([s, 'bass', [r], 1.6, .32], [s + 3, 'bass', [f5], 1.6, .26]); [1, 2, 4, 5].forEach(k => ev.push([s + k, 'pluck', c, .8, .022])); });
-    [[0, 76, 2], [2, 74, 1], [3, 72, 2], [5, 71, 1], [6, 71, 2], [8, 72, 1], [9, 74, 3], [12, 76, 2], [14, 74, 1], [15, 71, 2], [17, 68, 1], [18, 69, 6],
-     [24, 72, 2], [26, 74, 1], [27, 76, 2], [29, 77, 1], [30, 77, 2], [32, 76, 1], [33, 74, 3], [36, 76, 2], [38, 74, 1], [39, 72, 2], [41, 71, 1], [42, 69, 3], [45, 64, 3]]
-      .forEach(([s, m, d]) => { for (let k = 0; k < d; k++) ev.push([s + k, 'pluck', [m], 1, k ? .04 : .06]); });
-    T.pizzeria = { step:.15, steps:48, ev };
-  }
-  // Boutique de luxe : lounge feutré au piano électrique, en ré dorien (4 temps, 2 pas par temps)
-  {
-    const ev = [], chords = [[38, [53, 57, 60, 64]], [43, [53, 59, 64]], [36, [52, 55, 59, 62]], [45, [55, 58, 61, 64]], [38, [53, 57, 60, 64]], [43, [53, 59, 64]], [40, [55, 59, 62]], [45, [55, 61, 64]]];
-    chords.forEach(([r, c], bar) => {
-      const s = bar * 8;
-      [0, 7, 12, 7].forEach((iv, k) => ev.push([s + k * 2, 'bass', [r + iv], 1.7, .26]));
-      ev.push([s, 'ep', c, 5, .03], [s + 5, 'ep', c, 1.5, .022]);
-      for (let k = 1; k < 8; k += 2) ev.push([s + k, 'hat', [0], .2, .012]);
+    const ev = [], C = [48, [60, 64, 67]], G7 = [43, [59, 62, 65]], F = [41, [57, 60, 65]], Am = [45, [57, 60, 64]], Dm = [50, [57, 62, 65]];
+    [C, G7, G7, C, C, F, G7, C, Am, Am, Dm, Dm, G7, G7, C, C].forEach(([b, c], bar) => {
+      const s = bar * 6; add(ev, s, 'bass', b, 1.8, .26); add(ev, s + 2, 'accordion', c, 1.1, .014); add(ev, s + 4, 'accordion', c, 1.1, .014);
     });
-    [[.5, 69, 1], [1.5, 72, 1], [3, 76, 1], [4, 74, 2], [6.5, 71, 1], [8, 71, 1], [9, 72, 1], [10, 76, 2], [12.5, 73, 1], [14, 70, 1.5],
-     [16.5, 69, 1], [17.5, 72, 1], [19, 77, 1], [20, 76, 1.5], [22, 74, 1], [24, 74, 1], [25, 71, 1], [26, 67, 2], [28, 69, 3]]
-      .forEach(([b, m, d]) => ev.push([b * 2, 'ep', [m], d * 2, .06]));
-    T.luxe = { step:.36, steps:64, ev };
+    [[0, 76, 1], [1, 79, 1], [2, 76, 1], [3, 74, 1.5], [4.5, 72, .5], [5, 71, 1], [6, 74, 1], [7, 77, 1], [8, 74, 1], [9, 72, 2], [11, 67, 1],
+     [12, 76, 1], [13, 79, 1], [14, 84, 1], [15, 81, 1.5], [16.5, 79, .5], [17, 77, 1], [18, 76, 1], [19, 74, 1], [20, 71, 1], [21, 72, 3],
+     [24, 81, 1], [25, 80, 1], [26, 81, 1], [27, 84, 1.5], [28.5, 81, .5], [29, 76, 1], [30, 77, 1], [31, 76, 1], [32, 77, 1], [33, 81, 2], [35, 77, 1],
+     [36, 79, 1], [37, 78, 1], [38, 79, 1], [39, 83, 1.5], [40.5, 81, .5], [41, 79, 1], [42, 77, 1], [43, 76, 1], [44, 74, 1], [45, 72, 2], [47, 71, 1]]
+      .forEach(([b, m, d]) => add(ev, b * 2, 'accordion', m, d * 2 - .2, .036));
+    T.boulangerie = { step:.27, steps:96, ev };
+  }
+  // Pizzeria : tarentelle napolitaine, mandoline en trémolo, tambourin, puis refrain en majeur à l'accordéon (6/8)
+  {
+    const ev = [], Am = [45, 52, [57, 60, 64]], E7 = [40, 47, [56, 59, 62]], Dm = [38, 45, [57, 62, 65]], A = [45, 52, [57, 61, 64]], D = [38, 45, [57, 62, 66]];
+    [Am, E7, E7, Am, Am, Dm, E7, Am, A, A, D, D, E7, E7, A, E7].forEach(([r, f5, c], bar) => {
+      const s = bar * 6, refrain = bar >= 8;
+      add(ev, s, 'bass', r, 1.6, .28); add(ev, s + 3, 'bass', f5, 1.6, .22);
+      [1, 2, 4, 5].forEach(k => add(ev, s + k, refrain ? 'accordion' : 'pluck', c, refrain ? .7 : .8, refrain ? .012 : .018));
+      add(ev, s, 'tamb', 0, .3, .03); add(ev, s + 3, 'tamb', 0, .3, .022);
+    });
+    [[0, 76, 2], [2, 74, 1], [3, 72, 2], [5, 71, 1], [6, 71, 2], [8, 72, 1], [9, 74, 3], [12, 76, 2], [14, 74, 1], [15, 71, 2], [17, 68, 1], [18, 69, 6],
+     [24, 72, 2], [26, 74, 1], [27, 76, 2], [29, 77, 1], [30, 77, 2], [32, 76, 1], [33, 74, 3], [36, 76, 2], [38, 74, 1], [39, 72, 2], [41, 71, 1], [42, 69, 3], [45, 64, 3],
+     [48, 73, 2], [50, 76, 1], [51, 81, 3], [54, 80, 2], [56, 78, 1], [57, 76, 3], [60, 78, 2], [62, 81, 1], [63, 78, 2], [65, 74, 1], [66, 78, 6],
+     [72, 76, 2], [74, 80, 1], [75, 83, 3], [78, 81, 2], [80, 80, 1], [81, 78, 3], [84, 76, 2], [86, 74, 1], [87, 71, 2], [89, 68, 1], [90, 69, 3], [93, 76, 3]]
+      .forEach(([s, m, d]) => { for (let k = 0; k < d; k++) add(ev, s + k, 'pluck', m, 1, k ? .032 : .05); });
+    T.pizzeria = { step:.15, steps:96, ev };
+  }
+  // Boutique de luxe : élégance baroque, clavecin en arpèges, quatuor à cordes (la mineur, marche harmonique)
+  {
+    const ev = [], prog = [[45, [57, 60, 64, 69]], [50, [57, 62, 65, 69]], [43, [55, 59, 62, 67]], [48, [55, 60, 64, 67]], [41, [57, 60, 65, 69]], [47, [59, 62, 65, 71]], [40, [56, 59, 64, 68]], [45, [57, 60, 64, 69]]];
+    const pat = [0, 2, 1, 2, 3, 2, 1, 2];
+    const mel = [[[76, 74], [77, 74], [74, 71], [76, 72], [72, 77], [74, 77], [71, 76], [72, 72]], [[81, 79], [81, 77], [79, 74], [79, 76], [77, 81], [77, 74], [76, 80], [81, 81]]];
+    for (let pass = 0; pass < 2; pass++) prog.forEach(([b, c], k) => {
+      const s = (pass * 8 + k) * 16, up = pass ? 12 : 0;
+      for (let j = 0; j < 16; j++) add(ev, s + j, 'harpsi', c[pat[j % 8]] + up, 1, pass ? .016 : .02);
+      add(ev, s, 'cello', b, 7.6, .045); add(ev, s + 8, 'cello', b + 7, 7.6, .04);
+      add(ev, s, 'strings', c.slice(0, 3), 15.6, .01);
+      const [m1, m2] = mel[pass][k];
+      if (m1 === m2) add(ev, s, 'violin', m1, 15.4, .026); else { add(ev, s, 'violin', m1, 7.6, .026); add(ev, s + 8, 'violin', m2, 7.6, .026); }
+    });
+    T.luxe = { step:.16, steps:256, ev };
+  }
+  // Parfumerie : pop coréenne entraînante, boîte à rythmes, basse qui pompe, accords synthé et refrain accrocheur
+  {
+    const ev = [], Am = [45, [57, 60, 64]], F = [41, [57, 60, 65]], C = [48, [55, 60, 64]], G = [43, [55, 59, 62]];
+    [Am, F, C, G, Am, F, C, G, Am, F, C, G, Am, F, C, G].forEach(([b, c], bar) => {
+      const s = bar * 16, refrain = bar >= 8;
+      [0, 4, 8, 12].forEach(k => add(ev, s + k, 'kick', 0, .3, .45));
+      [4, 12].forEach(k => add(ev, s + k, 'clap', 0, .2, refrain ? .055 : .04));
+      for (let k = 2; k < 16; k += 4) add(ev, s + k, 'hat', 0, .2, .018);
+      if (refrain) for (let k = 1; k < 16; k += 2) add(ev, s + k, 'hat', 0, .1, .008);
+      for (let k = 0; k < 16; k += 2) add(ev, s + k, 'synbass', b + (k % 4 ? 12 : 0), 1.6, .09);
+      [2, 6, 10, 14].forEach(k => add(ev, s + k, 'stab', c.map(n => n + 12), 1.2, refrain ? .016 : .011));
+    });
+    const hook = [[0, 76, 2], [2, 76, 2], [4, 79, 2], [6, 76, 2], [8, 74, 2], [10, 72, 2], [12, 74, 4], [16, 72, 2], [18, 72, 2], [20, 74, 2], [22, 72, 2], [24, 69, 4], [28, 67, 4],
+      [32, 76, 2], [34, 76, 2], [36, 79, 2], [38, 81, 2], [40, 79, 2], [42, 76, 2], [44, 74, 4], [48, 74, 2], [50, 76, 2], [52, 74, 2], [54, 71, 2], [56, 67, 8]];
+    hook.forEach(([s, m, d]) => add(ev, s, 'lead', m, d - .3, .03));
+    hook.filter(h => h[0] < 48).forEach(([s, m, d]) => add(ev, s + 64, 'lead', m, d - .3, .03));
+    [[112, 74, 2], [114, 76, 2], [116, 79, 4], [120, 81, 8]].forEach(([s, m, d]) => add(ev, s, 'lead', m, d - .3, .03));
+    const refr = [[0, 81, 1], [2, 81, 1], [4, 79, 2], [6, 81, 2], [8, 84, 4], [12, 81, 4], [16, 77, 2], [18, 79, 2], [20, 81, 4], [24, 77, 4], [28, 76, 4],
+      [32, 79, 2], [34, 79, 2], [36, 81, 2], [38, 79, 2], [40, 76, 4], [44, 74, 4], [48, 74, 2], [50, 76, 2], [52, 79, 4], [56, 83, 8]];
+    refr.forEach(([s, m, d]) => { add(ev, 128 + s, 'lead', m, d - .2, .034); add(ev, 192 + s, 'lead', m, d - .2, .034); });
+    T.beaute = { step:.127, steps:256, ev };
   }
   for (const k in T) { const tr = T[k]; tr.at = []; tr.ev.forEach(e => (tr.at[Math.round(e[0])] = tr.at[Math.round(e[0])] || []).push(e)); }
   return T;
@@ -657,8 +813,8 @@ function actOvenTake(c, o){
   if (st.out < 1 || c.stack.length >= c.cap) return false;
   st.out--; c.stack.push(o.prod); return true;
 }
-function actVitrine(c){
-  const i = c.stack.findIndex(t => isGood(t) && S.vit[t] < VIT_CAP);
+function actVitrine(c, only){
+  const i = c.stack.findIndex(t => isGood(t) && (!only || t === only) && S.vit[t] < vitCap());
   if (i < 0) return false;
   S.vit[c.stack.splice(i, 1)[0]]++; return true;
 }
@@ -685,6 +841,7 @@ function buy(u){
 const COATS = ['#c8433a','#3f6b8f','#3f6b4f','#d0893a','#7a5aa8','#2f8a86','#b9543f','#4f5d75'];
 const HATS  = ['#e8e1d3','#c8433a','#f2b632','#3f6b8f','#6f8f55','#d36f9a'];
 function spawnCustomer(){
+  if (CFG.selfServe) return spawnSelf();
   const prods = products();
   const used = new Set(customers.filter(c => c.slot != null).map(c => c.slot));
   const free = VSLOTS.map((_, i) => i).filter(i => !used.has(i));
@@ -695,7 +852,7 @@ function spawnCustomer(){
   const qty = want === OVENS.find(o => o.kind === 'sand').prod ? 1 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * Math.min(3, prods.length + 1));
   const side = Math.random() < .5 ? -14 : 374, slot = free[Math.floor(Math.random() * free.length)];
   const c = { x:side, y:700, side, state:'enter', slot, want, qty, got:0, pat:55, t:0, pay:0, wait:0,
-    thief:S.sold > 30 && Math.random() < THIEF_ODDS, dine:has('tables') && Math.random() < DINE_ODDS, spent:0, seat:null,
+    thief:Math.random() < theftOdds(), dine:has('tables') && Math.random() < DINE_ODDS, spent:0, seat:null,
     path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [VSLOTS[slot], 490]],
     coat:COATS[Math.floor(Math.random() * COATS.length)], hat:HATS[Math.floor(Math.random() * HATS.length)], mood:null };
   if (CFG.luxe) {
@@ -715,6 +872,49 @@ function spawnCustomer(){
     }
   }
   customers.push(c);
+}
+// libre-service : le client fait plusieurs rayons, panier à la main, puis passe en caisse
+function spawnSelf(){
+  if (customers.length >= 10 || queue.length >= 5) return;
+  const prods = products(), n = 2 + Math.floor(Math.random() * 3) + (has('conseillere') ? 1 : 0), list = [];
+  for (let k = 0; k < n; k++) list.push(prods[Math.floor(Math.random() * prods.length)]);
+  list.sort((a, b) => PROD_ORDER.indexOf(a) - PROD_ORDER.indexOf(b));
+  const side = Math.random() < .5 ? -14 : 374;
+  customers.push({ x:side, y:700, side, state:'enter', slot:null, list, idx:0, basket:[], want:list[0], qty:list.length, got:0, pat:25, t:0, pay:0, wait:0, ox:rnd(-28, 28),
+    thief:Math.random() < theftOdds(), dine:has('tables') && Math.random() < .25, spent:0, seat:null,
+    path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [180, 590]],
+    coat:COATS[Math.floor(Math.random() * COATS.length)], hat:HATS[Math.floor(Math.random() * HATS.length)], mood:null });
+}
+function shopSelf(c, dt){
+  c.spent += dt;
+  if (c.idx >= c.list.length) {
+    if (!c.basket.length) { if (c.influ) influResult(c, false); else review(c, 1); leave(c, 'angry'); }
+    else if (c.thief) thiefOut(c);
+    else toQueue(c);
+    return;
+  }
+  const p = c.list[c.idx], g = CFG.gondolas[p]; c.want = p; c.got = c.idx;
+  if (!moveTo(c, g.x + c.ox, g.y - 24, 62, dt)) return;
+  c.t += dt; c.pat -= dt;
+  if (c.t >= .6 && S.vit[p] > 0) { S.vit[p]--; c.basket.push(p); c.idx++; c.t = 0; c.pat = 25; c.ox = rnd(-28, 28); }
+  else if (c.pat <= 0) { c.missed = (c.missed || 0) + 1; c.idx++; c.pat = 25; }
+}
+const earnOf = c => c.basket ? c.basket.reduce((a, p) => a + PRODUCTS[p].price, 0) : c.got * PRODUCTS[c.want].price;
+const soldOf = c => c.basket ? c.basket.length : c.got;
+function putBack(c){
+  if (c.basket) c.basket.forEach(p => { S.vit[p] = Math.min(vitCap(), S.vit[p] + 1); });
+  else S.vit[c.want] = Math.min(vitCap(), S.vit[c.want] + c.got);
+}
+function thiefOut(c){
+  const n = soldOf(c);
+  if (has('portique') || (has('vigile') && (!CFG.thief || Math.random() < .5))) {
+    putBack(c); c.got = 0; if (c.basket) c.basket = [];
+    toast(has('portique') ? 'Les portiques ont sonné : le voleur repose tout !' : 'L\'agent a arrêté un voleur à la sortie !'); leave(c, 'angry');
+  } else {
+    leave(c, 'thief'); c.path.shift(); c.path.unshift([180, 560]);
+    toast('Au voleur ! Un client file avec ' + (c.basket ? n + ' article' + (n > 1 ? 's' : '') : n + ' ' + (n > 1 ? PRODUCTS[c.want].plural : PRODUCTS[c.want].name.toLowerCase())));
+    sfx.whistle();
+  }
 }
 const CAR_COLORS = ['#151515', '#f4f1ea', '#8a1f2b', '#2c3e57', '#c9a227'];
 function freeSpot(){
@@ -742,12 +942,12 @@ function sitDown(c){
   const taken = new Set(customers.filter(o => o.seat != null).map(o => o.seat));
   const free = SEATS.map((_, i) => i).filter(i => !taken.has(i) && !S.dirty.includes(i));
   if (!free.length) {
-    if (S.dirty.length) { float(c.x, c.y - 70, CFG.luxe ? 'Cabines en désordre !' : 'Tables sales !', '#c8433a'); review(c, 2); leave(c, 'angry'); }
+    if (S.dirty.length) { float(c.x, c.y - 70, CFG.makeup ? 'Atelier en désordre !' : CFG.luxe ? 'Cabines en désordre !' : 'Tables sales !', '#c8433a'); review(c, 2); leave(c, 'angry'); }
     else leave(c, 'happy');
     return;
   }
   const i = free[Math.floor(Math.random() * free.length)], seat = SEATS[i];
-  c.seat = i; c.state = 'sit'; c.path = [[seat.x, 530], [seat.x, seat.y]];
+  c.seat = i; c.state = 'sit'; c.path = CFG.makeup ? [[seat.x + 34, seat.y], [seat.x, seat.y]] : [[seat.x, 530], [seat.x, seat.y]];
 }
 function leave(c, mood){
   if (mood === 'angry') sfx.grumble();
@@ -759,10 +959,14 @@ function updateCustomers(dt){
   if (!isOpen()) return;
   const n = products().length;
   // une bonne note attire plus de monde : x0,8 à 5 étoiles, x1,28 à 1 étoile
-  const interval = .8 * Math.max(1.8, 4.6 - .9 * (n - 1)) * (has('enseigne') ? .75 : 1) * (1.4 - .12 * S.rating);
+  const interval = (boostT > 0 ? .5 : 1) * .8 * Math.max(1.8, 4.6 - .9 * (n - 1)) * (has('enseigne') ? .75 : 1) * (1.4 - .12 * S.rating);
   spawnT -= dt;
   if (spawnT <= 0) { spawnCustomer(); spawnT = interval * rnd(.75, 1.25); }
   for (const c of customers) {
+    if (c.fan) { updateFan(c, dt); continue; }
+    if (c.influ && influTick(c, dt)) continue;
+    if (c.state === 'refundGo') { if (followPath(c, 62, dt)) { c.state = 'refundWait'; openRefund(c); } continue; }
+    if (c.state === 'refundWait') continue;
     if (c.state === 'enter') {
       if (!c.bell && !c.refuse && c.y < 626) { c.bell = true; sfx.bell(); }
       if (followPath(c, 62, dt)) { if (c.refuse) { c.state = 'refused'; c.t = 0; sfx.refuse(); } else c.state = 'shop'; }
@@ -772,41 +976,34 @@ function updateCustomers(dt){
     } else if (c.state === 'shop' && c.browse) {
       c.t += dt;
       if (c.t > 7) leave(c, 'meh');
+    } else if (c.state === 'shop' && CFG.selfServe) {
+      shopSelf(c, dt);
     } else if (c.state === 'shop') {
       c.t += dt; c.pat -= dt; c.spent += dt;
       if (c.t >= (CFG.pickTime || .35) && c.got < c.qty && S.vit[c.want] > 0) { c.t = 0; S.vit[c.want]--; c.got++; }
-      if (c.got >= c.qty && c.thief && has('vigile')) {
-        // le vigile arrête le voleur à la sortie
-        S.vit[c.want] = Math.min(VIT_CAP, S.vit[c.want] + c.got); c.got = 0;
-        toast('Le vigile a arrêté un voleur à la sortie !'); leave(c, 'angry');
-      }
-      else if (c.got >= c.qty && c.thief) {
-        // le voleur file sans passer par la caisse
-        leave(c, 'thief'); c.path.shift(); c.path.unshift([180, 560]);
-        toast('Au voleur ! Un client file avec ' + c.got + ' ' + (c.got > 1 ? PRODUCTS[c.want].plural : PRODUCTS[c.want].name.toLowerCase()));
-        sfx.whistle();
-      }
+      if (c.got >= c.qty && c.thief) thiefOut(c);
       else if (c.got >= c.qty) toQueue(c);
       else if (c.pat <= 0) { if (c.got > 0) toQueue(c); else { review(c, 1); leave(c, 'angry'); } }
     } else if (c.state === 'queue') {
       const i = queue.indexOf(c);
-      const there = moveTo(c, 310, 494 + i * 24, 62, dt);
+      const qp = LAYOUT.q(i), there = moveTo(c, qp[0], qp[1], 62, dt);
       const serving = i === 0 && there && manned();
       if (!serving) c.wait += dt;
       c.spent += dt;
       if (c.wait > 50) {
         // trop attendu à la caisse : repose ses achats et s'en va
-        S.vit[c.want] = Math.min(VIT_CAP, S.vit[c.want] + c.got);
+        putBack(c);
         queue.splice(i, 1); review(c, 1); leave(c, 'angry'); continue;
       }
       if (serving) {
         c.pay += dt;
-        if (c.pay >= (CFG.payTime || .6)) {
-          const earn = c.got * PRODUCTS[c.want].price;
-          S.cash += earn; S.sold += c.got;
-          float(310, 470, '+' + earn + ' €', '#8a6410'); blip(1200, .06, 'square', .02);
+        if (c.pay >= (CFG.payTime || .6) * (has('caisse2') ? .5 : 1)) {
+          const earn = earnOf(c);
+          S.cash += earn; S.sold += soldOf(c);
+          float(c.x, c.y - 30, '+' + earn + ' €', '#8a6410'); blip(1200, .06, 'square', .02);
           queue.shift();
-          review(c, c.spent < 22 ? 5 : c.spent < 38 ? 4 : 3);
+          if (c.influ) influResult(c, true);
+          else review(c, c.basket ? (c.missed ? 3 : c.spent < 40 ? 5 : 4) : c.spent < 22 ? 5 : c.spent < 38 ? 4 : 3);
           if (c.dine) sitDown(c); else leave(c, 'happy');
         }
       }
@@ -814,7 +1011,10 @@ function updateCustomers(dt){
       if (followPath(c, 62, dt)) { c.state = 'eat'; c.t = 0; }
     } else if (c.state === 'eat') {
       c.t += dt;
-      if (c.t > 9) { S.dirty.push(c.seat); c.seat = null; leave(c, 'happy'); }
+      if (c.t > 9) {
+        if (CFG.makeup) { S.cash += 60; float(c.x, c.y - 40, '+60 €', '#8a6410'); }
+        S.dirty.push(c.seat); c.seat = null; leave(c, 'happy');
+      }
     } else if (c.state === 'leave') {
       if (followPath(c, c.mood === 'thief' ? 130 : 66, dt)) { c.gone = true; if (c.car) c.car.state = 'leave'; }
     }
@@ -852,15 +1052,21 @@ function updateInspector(dt){
   }
 }
 // mode cinéma : bandes noires, légende, le reste du jeu attend
-function cineOn(on){
+function cineOn(on, cap, kind){
   document.body.classList.toggle('cine', on);
-  Music.duck(on); if (on) sfx.sting();
-  if (on) document.getElementById('cineCap').textContent = 'Contrôle de l\'URSSAF !';
-  if (on) { joy.on = false; joy.dx = joy.dy = 0; }
+  document.body.classList.toggle('influ', !!on && kind === 'influ');
+  Music.duck(on);
+  if (on) {
+    document.getElementById('cineCap').textContent = cap || 'Contrôle de l\'URSSAF !';
+    if (kind === 'influ') sfx.sparkle(); else sfx.sting();
+    joy.on = false; joy.dx = joy.dy = 0;
+  }
 }
+const camTarget = () => inspector && inspector.cine ? inspector : influCine ? influCine.c : null;
+const cineBusy = () => !!camTarget();
 const cam = { z:1, x:180, y:360 };
 function updateCam(dt){
-  const e = inspector, on = e && e.cine, tz = on ? 1.9 : 1;
+  const e = camTarget(), on = !!e, tz = on ? (e === inspector ? 1.9 : 1.7) : 1;
   let tx = 180, ty = 360;
   if (on) {
     tx = MIRROR ? 360 - e.x : e.x; ty = e.y - 24;
@@ -872,9 +1078,10 @@ function updateCam(dt){
 }
 
 // ---------- Employés ----------
+const WALL_Y = 194;
 function makeWorker(role){
   const shop = role === 'serveur';
-  return { role, x:shop ? 300 : 185, y:shop ? 606 : 262, stack:[], cap:role === 'mitron' ? 5 : 6, speed:66, act:0, task:null, think:0 };
+  return { role, idx:workers.filter(w => w.role === role).length, x:shop ? LAYOUT.srv[0] : 185, y:shop ? LAYOUT.srv[1] : 262, stack:[], cap:role === 'mitron' ? 5 : 6, speed:CFG.selfServe ? 92 : 66, act:0, task:null, think:0 };
 }
 const workerSpeed = w => w.speed * lv('wspeed');
 function updateServer(w, dt){
@@ -882,7 +1089,7 @@ function updateServer(w, dt){
   const busy = new Set(customers.filter(o => o.seat != null).map(o => o.seat));
   const dist = i => Math.hypot(SEATS[i].x - w.x, SEATS[i].y - w.y);
   const dirty = S.dirty.filter(i => !busy.has(i)).sort((a, b) => dist(a) - dist(b))[0];
-  if (dirty == null) { w.act = 0; moveTo(w, 300, 606, workerSpeed(w), dt); return; }
+  if (dirty == null) { w.act = 0; moveTo(w, LAYOUT.srv[0], LAYOUT.srv[1], workerSpeed(w), dt); return; }
   const s = SEATS[dirty];
   if (moveTo(w, s.x, s.y - 16, workerSpeed(w), dt)) {
     w.act += dt;
@@ -902,10 +1109,19 @@ function mitronThink(w){
 }
 function boulangerThink(w){
   const sand = OVENS.find(o => o.kind === 'sand');
-  if (w.stack.includes(sand.input) && unlocked(sand) && S.ov.sandwich.in < 3) return { type:'drop', o:sand };
-  if (w.stack.some(isGood)) return { type:'vit' };
-  const ready = OVENS.filter(unlocked).filter(o => S.vit[o.prod] < VIT_CAP && (S.ov[o.id].out >= 2 || (S.ov[o.id].out >= 1 && S.ov[o.id].in === 0)))
-    .sort((a, b) => S.vit[a.prod] - S.vit[b.prod])[0];
+  if (w.stack.includes(sand.input) && unlocked(sand) && S.ov[sand.id].in < 3) return { type:'drop', o:sand };
+  // le poste le plus utile : rayon le plus vide, pas déjà pris par un collègue, le plus de stock prêt
+  const taken = new Set(workers.filter(o => o !== w && o.task && o.task.o).map(o => o.task.o.id));
+  const ready = OVENS.filter(unlocked).filter(o => S.vit[o.prod] < vitCap() && !w.stack.includes(o.prod) && (S.ov[o.id].out >= 2 || (S.ov[o.id].out >= 1 && S.ov[o.id].in === 0)))
+    .sort((a, b) => (taken.has(a.id) - taken.has(b.id)) || (S.vit[a.prod] - S.vit[b.prod]) || (S.ov[b.id].out - S.ov[a.id].out))[0];
+  if (CFG.selfServe) {
+    // libre-service : en réserve, on remplit le panier sur plusieurs étagères, puis chaque article va dans son rayon
+    const goods = w.stack.filter(isGood);
+    if (goods.length && ready && w.y < WALL_Y && w.stack.length < w.cap - 1) return { type:'take', o:ready, max:Math.ceil(w.cap / 3) };
+    if (goods.length) return { type:'vit', p:goods.find(t => S.vit[t] < vitCap()) || goods[0] };
+  }
+  else if (w.stack.some(isGood)) return { type:'vit' };
+  if (ready && CFG.selfServe) return { type:'take', o:ready, max:Math.ceil(w.cap / 3) };
   return ready ? { type:'take', o:ready } : { type:'wait' };
 }
 function updateWorkers(dt){
@@ -915,17 +1131,22 @@ function updateWorkers(dt){
     if (!w.task || w.think <= 0) { w.task = w.role === 'mitron' ? mitronThink(w) : boulangerThink(w); w.think = 1.2; }
     const t = w.task;
     let tx, ty;
-    if (t.type === 'vit') { tx = 150; ty = 408; }
+    if (t.type === 'vit') { if (t.p) { const z = gzone(t.p); tx = z.x + (w.idx || 0) * 14 - 7; ty = z.y; } else { tx = 150; ty = 408; } }
     else if (t.type === 'drop' || t.type === 'take') { tx = t.o.zone.x + (w.role === 'mitron' ? -8 : 8); ty = t.o.zone.y + 4; }
     else if (t.type === 'res') { tx = FLOUR_Z.x + 12; ty = FLOUR_Z.y + 8; }
     else if (w.role === 'mitron') { tx = 98; ty = 250; } else { tx = 200; ty = 360; }
-    if (moveTo(w, tx, ty, workerSpeed(w), dt) && t.type !== 'wait') {
+    // réserve fermée : on passe par la porte du milieu
+    if (CFG.reserveWall && (w.y < WALL_Y) !== (ty < WALL_Y)) {
+      const side = w.y < WALL_Y ? -1 : 1;
+      if (Math.abs(w.x - 180) > 3) { tx = 180; ty = WALL_Y + side * 16; } else { tx = 180; ty = WALL_Y - side * 16; }
+    }
+    if (moveTo(w, tx, ty, workerSpeed(w), dt) && t.type !== 'wait' && !(CFG.reserveWall && Math.abs(w.y - WALL_Y) < 20 && Math.abs(w.x - 180) < 4)) {
       w.act -= dt;
       if (w.act <= 0) {
         let ok = false;
-        if (t.type === 'vit') ok = actVitrine(w);
+        if (t.type === 'vit') ok = actVitrine(w, t.p);
         else if (t.type === 'drop') ok = actOvenDrop(w, t.o);
-        else if (t.type === 'take') ok = actOvenTake(w, t.o);
+        else if (t.type === 'take') ok = (!t.max || (t.n = (t.n || 0) + 1) <= t.max) && actOvenTake(w, t.o);
         else if (t.type === 'res') ok = actReserve(w);
         if (ok) w.act = .2 / lv('wspeed'); else w.think = 0;
       }
@@ -944,8 +1165,11 @@ function updatePlayer(dt){
   if (keys.has('arrowdown') || keys.has('s')) vy += 1;
   if (MIRROR) vx = -vx;
   const L = Math.hypot(vx, vy); if (L > 1) { vx /= L; vy /= L; }
+  const py0 = player.y;
   player.x = Math.max(18, Math.min(342, player.x + vx * player.speed * dt));
-  player.y = Math.max(84, Math.min(420, player.y + vy * player.speed * dt));
+  player.y = Math.max(84, Math.min(CFG.selfServe ? 612 : 420, player.y + vy * player.speed * dt));
+  // mur de la réserve : on ne passe que par la porte
+  if (CFG.reserveWall && (py0 < WALL_Y) !== (player.y < WALL_Y) && (player.x < 164 || player.x > 196)) player.y = py0;
   if (L > .05) player.walk = (player.walk || 0) + dt;
 
   // Moulin : il faut rester dessus pour moudre (disparaît quand le meunier livre)
@@ -965,7 +1189,8 @@ function updatePlayer(dt){
     let did = false;
     if (near(player, FLOUR_Z)) did = actReserve(player);
     for (const o of OVENS) if (unlocked(o) && near(player, o.zone)) did = actOvenDrop(player, o) || actOvenTake(player, o) || did;
-    if (near(player, VIT_Z)) did = actVitrine(player) || did;
+    if (CFG.selfServe) { for (const p of products()) if (near(player, gzone(p))) did = actVitrine(player, p) || did; }
+    else if (near(player, VIT_Z)) did = actVitrine(player) || did;
     if (did) { player.act = .11; tick(640); }
   }
   if (S.cash > 0 && near(player, CASH_Z)) {
@@ -1012,9 +1237,11 @@ function hint(){
   if (queue.length && !manned()) return ['Un client attend : va à la caisse', CAISSE_Z];
   const st = player.stack, ovs = OVENS.filter(unlocked);
   const sand = OVENS.find(o => o.kind === 'sand');
-  if (st.includes(sand.input) && unlocked(sand) && S.ov.sandwich.in === 0 && S.vit[sand.prod] < 3)
+  if (st.includes(sand.input) && unlocked(sand) && S.ov[sand.id].in === 0 && S.vit[sand.prod] < 3)
     return [CFG.text.sandTo, sand.zone];
-  if (st.some(isGood)) return [CFG.text.toVit || 'Pose tes produits dans la vitrine', VIT_Z];
+  if (st.some(isGood)) return [CFG.text.toVit || 'Pose tes produits dans la vitrine', CFG.selfServe ? gzone(st.find(isGood)) : VIT_Z];
+  if (CFG.selfServe) { const empty = products().find(p => S.vit[p] === 0); if (empty && !workers.some(w => w.role === 'boulanger')) {
+    const o = OVENS.find(o => o.prod === empty && o.kind === 'shelf'); if (o && S.ov[o.id].out > 0) return ['Le rayon ' + PRODUCTS[empty].name.toLowerCase() + ' est vide : va en réserve', o.zone]; } }
   const freeOven = ovs.filter(o => isOven(o) && S.ov[o.id].in < OV_IN_CAP).sort((a, b) => stockOf(a) - stockOf(b))[0];
   if (st.includes(RAW) && freeOven) return [CFG.text.putRaw, freeOven.zone];
   if (st.length >= player.cap) return ['Mains pleines : passe à la poubelle', TRASH_Z];
@@ -1022,6 +1249,7 @@ function hint(){
   if (ready) return [isOven(ready) ? 'Sors les produits du four' : ready.kind === 'shelf' ? 'Prends les ' + PRODUCTS[ready.prod].plural + ' en réserve' : 'Récupère les ' + PRODUCTS[ready.prod].plural, ready.zone];
   const pads = visiblePads();
   if (S.dirty.length >= 3 && !has('serveur')) return [CFG.luxe ? 'Les cabines débordent : engage une hôtesse' : 'Les tables sont sales : engage un serveur', UPG.find(u => u.id === 'serveur')];
+  if (CFG.thief && !has('vigile') && S.sold > 15 && has('apprenti')) return ['Beaucoup de vols : engage un agent de sécurité', UPG.find(u => u.id === 'vigile')];
   if (CFG.luxe && !has('vigile') && customers.filter(c => c.browse && c.state === 'shop').length >= 3)
     return ['Des curieux bloquent les rayons : engage un vigile', UPG.find(u => u.id === 'vigile')];
   const afford = pads.find(u => S.money >= u.price - (S.paid[u.id] || 0) - .5);
@@ -1114,6 +1342,17 @@ function drawItem(t, x, y, s = 1){
   } else if (t === 'parfum') {
     rr(-6, -4, 12, 12, 3, '#f2d7e4', '#8a6a72', 1); rr(-3, -8, 6, 4, 1, '#d4af37', '#8a6410', .8);
     ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-4, -2, 2, 7);
+  } else if (t === 'skincare') {
+    rr(-5, -6, 10, 13, 3, '#f6f1ff', '#8f8aa8', 1); rr(-3, -9, 6, 4, 1.5, '#8fd6c3', '#4f8f7f', .8); ctx.fillStyle = '#f2a7bd'; ctx.fillRect(-4, -1, 8, 3);
+  } else if (t === 'maquillage') {
+    rr(-3.5, -1, 7, 9, 1.5, '#d4af37', '#8a6410', 1); rr(-2.5, -8, 5, 8, 2, '#c8243f', '#7a1020', .8);
+  } else if (t === 'cheveux') {
+    rr(-4.5, -6, 9, 15, 3, '#7fb3e0', '#3f6b8f', 1); rr(-2.5, -9, 5, 4, 1.5, '#ffffff', '#3f6b8f', .8);
+  } else if (t === 'corps') {
+    rr(-8, -3.5, 14, 7, 3, '#f3c99a', '#a87a4a', 1); rr(5, -2.5, 4, 5, 1.2, '#ffffff', '#a87a4a', .8);
+  } else if (t === 'coffret') {
+    rr(-8, -6, 16, 13, 2, '#f2a7bd', '#a8506e', 1); ctx.fillStyle = '#ffffff'; ctx.fillRect(-1.2, -6, 2.4, 13); ctx.fillRect(-8, -1, 16, 2.4);
+    circle(-2.5, -7, 2, null, '#ffffff', 1.2); circle(2.5, -7, 2, null, '#ffffff', 1.2);
   } else if (t === 'macaron') {
     [['#f2a7bd', -4.5, 1], ['#a8d48f', 4.5, 1], ['#f5d36b', 0, -4]].forEach(([col, dx, dy]) => {
       rr(dx - 4.5, dy - 3, 9, 6, 3, col, '#8a5523', 1); ctx.fillStyle = '#fff6e8'; ctx.fillRect(dx - 4, dy - .4, 8, 1);
@@ -1151,6 +1390,7 @@ function drawRoom(){
   ctx.fillStyle = '#c9b8a2'; ctx.beginPath(); ctx.moveTo(158, 640); ctx.lineTo(202, 640); ctx.lineTo(206, 690); ctx.lineTo(360, 690); ctx.lineTo(360, 708);
   ctx.lineTo(0, 708); ctx.lineTo(0, 690); ctx.lineTo(154, 690); ctx.closePath(); ctx.fill();
   pine(26, 676, .9); pine(70, 690, .7); pine(300, 680, .85); pine(338, 692, .7);
+  if (CFG.selfServe) drawBeauteFloor(); else {
   // fournil : dalles de pierre
   ctx.save(); ctx.beginPath(); ctx.rect(0, 70, 360, 360); ctx.clip();
   const th = CFG.theme, kc = reno ? th.kitchenReno : th.kitchen;
@@ -1201,6 +1441,7 @@ function drawRoom(){
       }
     });
   });
+  }
   // mur du fond en rondins, avec fenêtres sur les sommets
   for (let y = 0; y < 70; y += 14) { rr(0, y, 360, 13, 6, '#8b5a33', '#6b4226', 1); }
   windowView(18, 12, 44, 34); windowView(298, 12, 44, 34);
@@ -1221,6 +1462,7 @@ function drawRoom(){
   ctx.fillStyle = '#7d8ea3'; ctx.beginPath(); ctx.moveTo(sx0 + 8, 25); ctx.lineTo(sx0 + 15, 13); ctx.lineTo(sx0 + 22, 25); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(sx0 + 15, 13); ctx.lineTo(sx0 + 12.5, 17.5); ctx.lineTo(sx0 + 17.5, 17.5); ctx.fill();
   text(label, 180 + 9, 18.5, fs);
+  if (CFG.selfServe) { drawBeauteFurniture(); return; }
   // comptoir + vitrine
   rr(0, 428, 264, 36, 0, '#7a4b2a'); ctx.fillStyle = '#986238'; ctx.fillRect(0, 428, 264, 7);
   ctx.fillStyle = 'rgba(214,236,238,.55)'; ctx.fillRect(4, 437, 256, 24);
@@ -1260,6 +1502,50 @@ function drawCars(){
     ctx.fillStyle = '#d4af37'; ctx.fillRect(k.x + 22, k.y - 6, 2.5, 3); ctx.fillRect(k.x + 22, k.y + 3, 2.5, 3);
   }
 }
+// parfumerie : carrelage rose poudré, réserve en béton derrière un mur percé d'une porte
+function drawBeauteFloor(){
+  const reno = has('renovation');
+  ctx.fillStyle = reno ? '#fbeef2' : '#f6e6ea'; ctx.fillRect(0, 194, 360, 432);
+  ctx.strokeStyle = reno ? '#f0d6de' : '#ebd2da'; ctx.lineWidth = 1;
+  for (let y = 194; y < 626; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(360, y); ctx.stroke(); }
+  for (let x = 0; x < 360; x += 32) { ctx.beginPath(); ctx.moveTo(x, 194); ctx.lineTo(x, 626); ctx.stroke(); }
+  ctx.fillStyle = '#d9d6d3'; ctx.fillRect(0, 70, 360, 124);
+  ctx.strokeStyle = '#c8c4c0'; for (let x = 0; x < 360; x += 40) { ctx.beginPath(); ctx.moveTo(x, 70); ctx.lineTo(x, 194); ctx.stroke(); }
+  if (reno) { rr(130, 470, 100, 60, 30, '#f9d3e0'); rr(138, 478, 84, 44, 22, null, '#e8a9bf', 2); }
+}
+function drawBeauteFurniture(){
+  // mur de la réserve et sa porte
+  ctx.fillStyle = '#c9b3bc'; ctx.fillRect(0, 188, 160, 12); ctx.fillRect(200, 188, 160, 12);
+  ctx.fillStyle = '#a88f99'; ctx.fillRect(0, 198, 160, 3); ctx.fillRect(200, 198, 160, 3);
+  rr(156, 184, 6, 18, 1.5, '#8a6f7a'); rr(198, 184, 6, 18, 1.5, '#8a6f7a');
+  text('Réserve', 180, 80, 8, 'rgba(51,36,26,.45)');
+  // rayons en libre-service
+  const ps = products(), cap = vitCap();
+  for (const p of PROD_ORDER) {
+    const g = CFG.gondolas[p];
+    if (!ps.includes(p)) { ctx.setLineDash([4, 4]); rr(g.x - 42, g.y - 13, 84, 26, 6, 'rgba(51,36,26,.05)', 'rgba(51,36,26,.3)', 1.4); ctx.setLineDash([]); continue; }
+    rr(g.x - 42, g.y - 13, 84, 26, 5, '#ffffff', '#b07a8c', 1.6);
+    ctx.fillStyle = CFG.colors[p]; ctx.fillRect(g.x - 41, g.y - 12, 82, 4);
+    const n = S.vit[p];
+    for (let k = 0; k < Math.min(n, 10); k++) drawItem(p, g.x - 34 + (k % 5) * 17, g.y - 2 + Math.floor(k / 5) * 9, .45);
+    if (n > 10) text('+' + (n - 10), g.x + 36, g.y + 18, 7, '#8a5a6a');
+    if (n === 0) text('vide', g.x, g.y + 2, 8, '#c8433a');
+    text(PRODUCTS[p].name + ' ' + n + '/' + cap, g.x, g.y + 20, 6.5, 'rgba(51,36,26,.6)', 400);
+  }
+  // caisse
+  rr(268, 546, 84, 40, 5, '#ffffff', '#b07a8c', 1.6);
+  rr(292, 552, 30, 18, 3, '#3f4b4f', '#222', 1); ctx.fillStyle = '#9fd39a'; ctx.fillRect(295, 555, 24, 6);
+  if (has('caisse2')) { rr(326, 552, 22, 18, 3, '#3f4b4f', '#222', 1); ctx.fillStyle = '#9fd39a'; ctx.fillRect(329, 555, 16, 6); }
+  text('Caisse', 310, 580, 7.5, '#8a5a6a');
+  // atelier maquillage : fauteuils face aux miroirs
+  if (has('tables')) SEATS.forEach((st, si) => {
+    rr(6, st.y - 24, 8, 24, 2, '#d7ecf2', '#8a6f7a', 1);
+    circle(st.x, st.y + 2, 9, '#e58aa8', '#8a3a58', 1.4);
+    if (S.dirty.includes(si)) drawItem('maquillage', st.x + 15, st.y - 6, .45);
+  });
+  // portiques antivol
+  if (has('portique')) { rr(144, 598, 7, 26, 2, '#dfe3e6', '#6d7680', 1.2); rr(209, 598, 7, 26, 2, '#dfe3e6', '#6d7680', 1.2); }
+}
 function drawSnow(){
   ctx.fillStyle = 'rgba(255,255,255,.9)';
   for (const f of flakes) { ctx.beginPath(); ctx.arc(f.x, f.y, f.s, 0, 7); ctx.fill(); }
@@ -1279,14 +1565,15 @@ function drawWorkbench(o){
     return;
   }
   if (o.kind === 'sand') {
-    if (!on) { ctx.setLineDash([4, 4]); rr(312, 182, 40, 60, 8, 'rgba(51,36,26,.06)', 'rgba(51,36,26,.35)', 1.5); ctx.setLineDash([]); return; }
-    rr(312, 180, 40, 64, 6, '#c8955c', '#5e3d22', 2);
-    ctx.strokeStyle = '#a97742'; ctx.lineWidth = 1; [196, 212, 228].forEach(y => { ctx.beginPath(); ctx.moveTo(313, y); ctx.lineTo(351, y); ctx.stroke(); });
-    for (let k = 0; k < Math.min(st.in, 4); k++) drawItem(o.input, 332, 190 + k * 9, .6);
-    rr(338, 232, 12, 3, 1.5, '#c4c9cc', '#555', .8); rr(344, 231, 7, 5, 2, '#5e3d22');
-    if (st.prog > 0) { rr(316, 172, 32, 4, 2, 'rgba(51,36,26,.25)'); rr(316, 172, 32 * st.prog / p.time, 4, 2, '#f2b632'); }
-    for (let k = 0; k < st.out; k++) drawItem(o.prod, 292 - Math.floor(k / 4) * 12, 194 + (k % 4) * 11, .55);
-    text(CFG.text.sand, 332, 252, 7.5);
+    const X = o.x, Y = o.y;
+    if (!on) { ctx.setLineDash([4, 4]); rr(X - 20, Y - 30, 40, 60, 8, 'rgba(51,36,26,.06)', 'rgba(51,36,26,.35)', 1.5); ctx.setLineDash([]); return; }
+    rr(X - 20, Y - 32, 40, 64, 6, CFG.beauty ? '#fbe3ec' : '#c8955c', CFG.beauty ? '#b07a8c' : '#5e3d22', 2);
+    ctx.strokeStyle = CFG.beauty ? '#e8bccb' : '#a97742'; ctx.lineWidth = 1; [-16, 0, 16].forEach(dy => { ctx.beginPath(); ctx.moveTo(X - 19, Y + dy); ctx.lineTo(X + 19, Y + dy); ctx.stroke(); });
+    for (let k = 0; k < Math.min(st.in, 4); k++) drawItem(o.input, X, Y - 22 + k * 9, .6);
+    if (!CFG.beauty) { rr(X + 6, Y + 20, 12, 3, 1.5, '#c4c9cc', '#555', .8); rr(X + 12, Y + 19, 7, 5, 2, '#5e3d22'); }
+    if (st.prog > 0) { rr(X - 16, Y - 40, 32, 4, 2, 'rgba(51,36,26,.25)'); rr(X - 16, Y - 40, 32 * st.prog / p.time, 4, 2, '#f2b632'); }
+    for (let k = 0; k < st.out; k++) drawItem(o.prod, X - 40 - Math.floor(k / 4) * 12, Y - 18 + (k % 4) * 11, .55);
+    text(CFG.text.sand, X, Y + 40, 7.5);
     return;
   }
   // table du pâtissier
@@ -1334,7 +1621,7 @@ function drawOven(o){
 
 function drawStations(){
   const z = FLOUR_Z;
-  if (CFG.noRaw) text('Réserve', z.x, z.y, 10, 'rgba(51,36,26,.35)');
+  if (CFG.noRaw) { if (!CFG.reserveWall) text('Réserve', z.x, z.y, 10, 'rgba(51,36,26,.35)'); }
   else if (!has('fournisseur')) {
     // moulin à bras
     circle(z.x, z.y, 25, '#8d867a', '#4d4740', 2);
@@ -1426,6 +1713,17 @@ function anger(x, y){
   ctx.restore();
 }
 function drawCustomer(c){
+  if (c.influ) return drawInflu(c);
+  if (c.fan) {
+    drawPerson(c, { body:c.coat, bonnet:c.hat, scarf:c.hat });
+    if (Math.sin(tclock * 3 + c.fx) > .6) { ctx.save(); ctx.translate(c.x, c.y - 44); ctx.fillStyle = '#e85a8a'; ctx.beginPath(); ctx.moveTo(0, 4); ctx.bezierCurveTo(-7, -2, -3, -7, 0, -3); ctx.bezierCurveTo(3, -7, 7, -2, 0, 4); ctx.fill(); ctx.restore(); }
+    return;
+  }
+  if (c.refund && c.state !== 'leave') {
+    drawPerson(c, { body:c.coat, bonnet:c.hat, scarf:c.hat });
+    bubble(c.x, c.y - 48, () => { rr(c.x - 5, c.y - 55, 10, 13, 1.5, '#ffffff', '#33241a', 1); ctx.fillStyle = '#7d8590'; [-51, -48, -45].forEach(y => ctx.fillRect(c.x - 3, c.y + y, 6, 1.2)); });
+    return;
+  }
   const mad = (c.state === 'shop' && c.pat < 18) || (c.state === 'queue' && c.wait > 20) || (c.state === 'leave' && c.mood === 'angry');
   drawPerson(c, { body:c.coat, bonnet:c.hat, scarf:c.hat, face:mad ? '#f0a38c' : null });
   const by = c.y - 48;
@@ -1438,8 +1736,8 @@ function drawCustomer(c){
     const s = 1 + .08 * Math.sin(tclock * 8);
     bubble(c.x, by, () => { ctx.save(); ctx.translate(c.x, by); ctx.scale(s, s); circle(0, 0, 6, '#f2b632', '#8a6410', 1); text('€', 0, .5, 7, '#8a6410'); ctx.restore(); }, c.wait > 20);
   } else if (c.state === 'eat') {
-    const t = TABLES[SEATS[c.seat].table];
-    drawItem(c.want, t.x + SEATS[c.seat].side * 5, t.y - 2, .45);
+    if (CFG.makeup) drawItem('maquillage', c.x + 10, c.y - 34, .5);
+    else { const t = TABLES[SEATS[c.seat].table]; drawItem(c.want, t.x + SEATS[c.seat].side * 5, t.y - 2, .45); }
   } else if (c.state === 'leave' && c.mood === 'thief' && c.y < 640) {
     bubble(c.x, by, () => text('!', c.x, by + .5, 13, '#c8433a'), true);
     drawItem(c.want, c.x + 11, c.y - 10, .6);
@@ -1474,9 +1772,9 @@ function draw(){
   customers.forEach(c => { if (!c.hidden) ents.push({ y:c.y, f:() => drawCustomer(c) }); });
   workers.forEach(w => ents.push({ y:w.y, f:() => drawPerson(w,
     w.role === 'mitron' ? { body:'#8a8f96', apron:'#fffaf0', toque:true }
-    : w.role === 'serveur' ? (CFG.luxe ? { body:'#f4efe6', apron:'#1f1f1f', cap:'#1f1f1f' } : { body:'#2c3036', apron:'#fffaf0', cap:'#2c3036' })
-    : CFG.luxe ? { body:'#1f1f1f', apron:'#d4af37', cap:'#1f1f1f' } : { body:'#3f6b8f', apron:'#fffaf0', toque:true }) }));
-  if (has('apprenti')) { const a = { x:338, y:410 }; ents.push({ y:a.y, f:() => drawPerson(a, CFG.luxe ? { body:'#1f1f1f', apron:'#f4efe6', cap:'#1f1f1f' } : { body:'#3f6b4f', apron:'#fffaf0', cap:'#c9762b' }) }); }
+    : w.role === 'serveur' ? (CFG.beauty ? { body:'#1f1f1f', apron:'#f58bb0', cap:'#d36f9a' } : CFG.luxe ? { body:'#f4efe6', apron:'#1f1f1f', cap:'#1f1f1f' } : { body:'#2c3036', apron:'#fffaf0', cap:'#2c3036' })
+    : CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#d4af37', cap:'#1f1f1f' } : { body:'#3f6b8f', apron:'#fffaf0', toque:true }) }));
+  if (has('apprenti')) { const a = LAYOUT.app; ents.push({ y:a.y, f:() => drawPerson(a, CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#f4efe6', cap:'#1f1f1f' } : { body:'#3f6b4f', apron:'#fffaf0', cap:'#c9762b' }) }); }
   if (has('patissier')) { const a = { x:185, y:228, walk:tclock * .4 }; ents.push({ y:a.y, f:() => drawPerson(a, CFG.luxe ? { body:'#7a5a8a', apron:'#f4efe6', cap:'#d4af37' } : { body:'#d36f9a', apron:'#fffaf0', toque:true }) }); }
   if (inspector) { const e = inspector; ents.push({ y:e.y, f:() => {
     drawPerson(e, { body:'#4a4f57', cap:'#2c3036' });
@@ -1484,15 +1782,16 @@ function draw(){
     if (e.state === 'check') bubble(e.x, e.y - 48, () => { rr(e.x - 5, e.y - 55, 10, 13, 1.5, '#fff6e8', '#33241a', 1); ctx.fillStyle = '#7d8590'; [-51, -48, -45].forEach(y => ctx.fillRect(e.x - 3, e.y + y, 6, 1.2)); });
     text('URSSAF', e.x, e.y + 11, 6.5, '#2c3036');
   } }); }
-  if (CFG.luxe && has('vigile')) { const v = { x:216, y:606 }; ents.push({ y:v.y, f:() => { drawPerson(v, { body:'#151515', cap:'#151515' }); rr(v.x - 5, v.y - 23, 10, 3, 1.5, '#000'); } }); }
+  if ((CFG.luxe || CFG.thief) && has('vigile')) { const v = { x:216, y:606 }; ents.push({ y:v.y, f:() => { drawPerson(v, { body:'#151515', cap:'#151515' }); rr(v.x - 5, v.y - 23, 10, 3, 1.5, '#000'); } }); }
   ents.push({ y:player.y, f:() => drawPerson(player, CFG.luxe ? { body:'#2b2b2b', apron:'#d4af37', toque:true } : { body:'#c9762b', apron:'#fffaf0', toque:true }) });
   ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
   drawSnow();
+  drawFlashes();
   if (player.stack.length >= player.cap) text('plein', player.x, player.y + 12, 7.5, '#c8433a');
   for (const f of floats) {
     ctx.globalAlpha = 1 - f.t / 1.2; text(f.text, f.x, f.y - f.t * 30, 11, f.color); ctx.globalAlpha = 1;
   }
-  if (curHint && !(inspector && inspector.cine) && !(workers.length && curHint[1] !== CASH_Z && curHint[1] !== CAISSE_Z && curHint[1] !== TRASH_Z)) drawArrow(curHint[1]);
+  if (curHint && !cineBusy() && !(workers.length && curHint[1] !== CASH_Z && curHint[1] !== CAISSE_Z && curHint[1] !== TRASH_Z)) drawArrow(curHint[1]);
   ctx.restore();
   if (joy.on) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1507,7 +1806,7 @@ let lastMoney = -1, lastHint = '';
 const starsEl = document.getElementById('stars');
 let lastStars = '';
 const shopBtn = document.getElementById('shopBtn'), shopPanel = document.getElementById('shopPanel'), shopList = document.getElementById('shopList');
-const SHOP_ORDER = ['boulangerie', 'pizzeria', 'luxe'];
+const SHOP_ORDER = ['boulangerie', 'pizzeria', 'luxe', 'beaute'];
 function renderShops(){
   shopList.innerHTML = SHOP_ORDER.filter(id => GAME.shops[id]).map(id => {
     const st = GAME.shops[id], pend = Math.floor(GAME.pending[id] || 0), here = id === SHOP_ID;
@@ -1592,8 +1891,8 @@ function frame(now){
   if (!paused) {
     for (let i = 0; i < gameSpeed; i++) {
       tclock += dt;
-      if (inspector && inspector.cine) { updateInspector(dt); updateFloats(dt); continue; }
-      updatePlayer(dt); updateWorkers(dt); updateCustomers(dt); updateCars(dt); updateInspector(dt); updateWorld(dt); updatePassive(dt);
+      if (cineBusy()) { updateInspector(dt); updateInfluCine(dt); updateFloats(dt); continue; }
+      updatePlayer(dt); updateWorkers(dt); updateCustomers(dt); updateCars(dt); updateInspector(dt); updateEvents(dt); updateWorld(dt); updatePassive(dt);
     }
     updateCam(dt);
     saveT += dt; if (saveT > 4) { saveT = 0; save(); }
@@ -1643,6 +1942,161 @@ function setSpeed(v){
   speedBtn.textContent = 'Vitesse test : x' + v;
 }
 speedHud.onclick = () => { audioOn(); setSpeed(gameSpeed === 1 ? 2 : 1); };
+
+// ---------- Événements : l'influenceuse et les demandes de remboursement ----------
+let influT = rnd(360, 600), refundT = rnd(180, 300), boostT = 0, influCine = null, refundC = null, flashes = [], flashT = 0;
+const NAMES = [['Martin', 0], ['Julie', 1], ['Kevin', 0], ['Sophie', 1], ['Lucas', 0], ['Chloé', 1], ['Nadia', 1], ['Hugo', 0], ['Inès', 1], ['Thomas', 0]];
+// excuses validées ensemble : [texte, légitime ?]
+const REFUNDS = {
+  boulangerie:[
+    ['Il y avait un cheveu dans mon croissant.', 1], ['Ma baguette était brûlée en dessous.', 1],
+    ['Mon pain au chocolat n\'avait pas de chocolat dedans.', 1], ['Mon croissant était tout rabougri.', 1],
+    ['Ma baguette n\'était plus croustillante… trois jours après.', 0], ['Mon chien a goûté le sandwich, il n\'a pas aimé.', 0],
+    ['Le macaron était trop petit pour ma bouche.', 0]],
+  pizzeria:[
+    ['J\'ai commandé une reine et il y avait de l\'ananas.', 1], ['Ma pizza était froide en arrivant chez moi.', 1],
+    ['Le tiramisu avait un goût bizarre.', 1], ['Le pizzaïolo n\'a pas chanté pendant la cuisson.', 0],
+    ['Ma pizza était ronde, je la voulais carrée.', 0], ['Il y avait trop de fromage sur ma 4 fromages.', 0],
+    ['La boîte ne rentrait pas dans mon sac à dos.', 0]],
+  luxe:[
+    ['La couture du sac est déchirée.', 1], ['Les chaussures ne sont pas de la même taille.', 1],
+    ['La robe a une tache sur le devant.', 1], ['Ma voisine a acheté le même sac, c\'est insupportable.', 0],
+    ['La robe ne va pas avec la couleur de mes yeux.', 0], ['Ces chaussures ne me font pas marcher plus vite.', 0],
+    ['Le parfum sent trop bon, mon chat est jaloux.', 0]],
+  beaute:[
+    ['Le flacon était vide.', 1], ['Ce shampoing m\'a donné des boutons.', 1], ['Le rouge à lèvres était cassé dans la boîte.', 1],
+    ['Ce mascara ne m\'a pas rajeunie de 10 ans.', 0], ['La crème hydratante… hydrate trop.', 0],
+    ['Le masque coréen ne m\'a pas fait parler coréen.', 0], ['Ma lotion sent la lotion.', 0]],
+};
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const starTxt = d => (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1).replace('.', ',') + ' ★';
+
+function updateEvents(dt){
+  if (boostT > 0) boostT -= dt;
+  updateFlashes(dt);
+  if (!isOpen() || !has('apprenti') || inspector || refundC || influCine) return;
+  influT -= dt; refundT -= dt;
+  if (influT <= 0) { influT = rnd(360, 600); if (!customers.some(c => c.influ)) spawnInflu(); }
+  else if (refundT <= 0) { refundT = rnd(180, 300); spawnRefund(); }
+}
+
+// --- l'influenceuse : arrivée filmée, fans autour d'elle, 30 secondes pour la servir ---
+function spawnInflu(){
+  const inStock = products().filter(p => S.vit[p] > 0), pool = inStock.length ? inStock : products();
+  const want = pick(pool), side = Math.random() < .5 ? -14 : 374;
+  const c = { x:side, y:700, side, state:'enter', slot:null, want, qty:1, got:0, pat:99, t:0, pay:0, wait:0, thief:false, dine:false, spent:0, seat:null,
+    influ:true, influT:30, coat:'#f58bb0', hat:'#ffffff', mood:null, bell:true,
+    path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y]] };
+  if (CFG.selfServe) { c.list = [want]; c.idx = 0; c.basket = []; c.ox = 0; c.pat = 30; c.path.push([180, 590]); }
+  else {
+    const used = new Set(customers.filter(o => o.slot != null).map(o => o.slot));
+    c.slot = VSLOTS.map((_, i) => i).find(i => !used.has(i)); if (c.slot == null) c.slot = 2;
+    c.path.push([VSLOTS[c.slot], 490]);
+  }
+  customers.push(c);
+  const nf = 3 + Math.floor(Math.random() * 2);
+  for (let k = 0; k < nf; k++) customers.push({ fan:true, leader:c, x:side + rnd(-12, 12), y:704 + rnd(0, 8), fx:rnd(-30, 30), fy:rnd(12, 34), state:'fan',
+    coat:COATS[Math.floor(Math.random() * COATS.length)], hat:HATS[Math.floor(Math.random() * HATS.length)], want:null, got:0, qty:0 });
+  influCine = { c, t:4.2 };
+  cineOn(true, '✨ Une influenceuse arrive !', 'influ');
+}
+function updateFan(c, dt){
+  const L = c.leader;
+  if (L.gone) { c.gone = true; return; }
+  moveTo(c, L.x + c.fx, L.y + c.fy, 70, dt);
+}
+// pendant le plan cinéma, seuls l'influenceuse et ses fans bougent
+function updateInfluCine(dt){
+  if (!influCine) return;
+  const c = influCine.c;
+  if (c.state === 'enter') followPath(c, 62, dt);
+  customers.forEach(f => { if (f.fan && f.leader === c) updateFan(f, dt); });
+  updateFlashes(dt);
+  influCine.t -= dt;
+  if (influCine.t <= 0) { influCine = null; cineOn(false); }
+}
+function influResult(c, ok){
+  if (c.done) return; c.done = true;
+  const fans = customers.filter(f => f.fan && f.leader === c).length;
+  if (ok) {
+    S.rating = Math.min(5, S.rating + .5); boostT = 60;
+    const bonus = fans * PRODUCTS[c.want].price; S.cash += bonus;
+    float(c.x, c.y - 62, starTxt(.5), '#c99a0e'); if (bonus) float(CASH_Z.x, CASH_Z.y - 40, '+' + bonus + ' €', '#8a6410');
+    toast('Elle a trop kiffé ! Sa story fait venir du monde'); fanfare();
+  } else {
+    S.rating = Math.max(1, S.rating - .5);
+    float(c.x, c.y - 62, starTxt(-.5), '#c8433a');
+    toast('Elle a pas kiffé… Sa story fait fuir les clients'); sfx.grumble();
+  }
+}
+function influTick(c, dt){
+  if (c.done || c.state === 'leave') return false;
+  c.influT -= dt;
+  if (c.influT > 0) return false;
+  influResult(c, false);
+  const qi = queue.indexOf(c); if (qi >= 0) queue.splice(qi, 1);
+  putBack(c); if (c.basket) c.basket = []; c.got = 0;
+  leave(c, 'angry');
+  return true;
+}
+// flashs d'appareil photo autour de l'influenceuse
+function updateFlashes(dt){
+  flashes.forEach(f => f.t += dt); flashes = flashes.filter(f => f.t < .35);
+  const c = customers.find(o => o.influ && !o.gone && o.y < 640);
+  if (!c) return;
+  flashT -= dt;
+  if (flashT <= 0) { flashT = rnd(.15, .4); flashes.push({ x:c.x + rnd(-26, 26), y:c.y - 20 + rnd(-24, 14), t:0 }); sfx.camera(); }
+}
+function drawFlashes(){
+  for (const f of flashes) {
+    const a = 1 - f.t / .35, r = 4 + f.t * 30;
+    ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.translate(f.x, f.y);
+    for (let k = 0; k < 4; k++) { ctx.rotate(Math.PI / 4); ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.stroke(); }
+    circle(0, 0, 3, '#fff8d0'); ctx.restore();
+  }
+}
+function drawInflu(c){
+  const look = { boulangerie:{ cap:'#c8433a' }, pizzeria:{ cap:'#3f6b4f' }, luxe:{ cap:'#1f1f1f' }, beaute:{ bonnet:'#f2a7bd' } }[SHOP_ID];
+  if (SHOP_ID === 'beaute') circle(c.x, c.y - 21, 13, null, 'rgba(255,255,255,.9)', 3);
+  drawPerson(c, Object.assign({ body:'#f58bb0', apron:'#ffffff' }, look));
+  rr(c.x - 6, c.y - 23, 12, 3.5, 1.5, '#111');
+  rr(c.x + 9, c.y - 26, 5, 8, 1.5, '#222', '#000', .6);
+  if (c.done || c.state === 'leave') return;
+  const by = c.y - 50;
+  rr(c.x - 22, by - 11, 44, 20, 8, '#fff6d6', '#d4af37', 2);
+  drawItem(c.want, c.x - 10, by - 1, .6);
+  text(Math.ceil(c.influT) + ' s', c.x + 9, by, 8.5, c.influT < 10 ? '#c8433a' : '#8a6410');
+}
+
+// --- remboursement : le client explique, tu décides ---
+function spawnRefund(){
+  const list = REFUNDS[SHOP_ID], [reason, legit] = pick(list), [name, f] = pick(NAMES);
+  const p = pick(products()), price = PRODUCTS[p].price * (1 + Math.floor(Math.random() * 2));
+  const side = Math.random() < .5 ? -14 : 374, q = LAYOUT.q(0);
+  customers.push({ x:side, y:700, side, state:'refundGo', slot:null, want:p, qty:0, got:0, pat:99, t:0, pay:0, wait:0, thief:false, dine:false, spent:0, seat:null,
+    refund:{ reason, legit, name, f, price }, coat:COATS[Math.floor(Math.random() * COATS.length)], hat:HATS[Math.floor(Math.random() * HATS.length)], mood:null,
+    path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [q[0] - 34, q[1]]] });
+}
+const refundPanel = document.getElementById('refundPanel');
+function openRefund(c){
+  refundC = c; paused = true; joy.on = false;
+  const r = c.refund;
+  document.getElementById('refundTitle').textContent = r.name + ' veut être ' + (r.f ? 'remboursée' : 'remboursé') + ' (' + r.price + ' €)';
+  document.getElementById('refundReason').textContent = '« ' + r.reason + ' »';
+  refundPanel.hidden = false; blip(660, .1, 'triangle', .04);
+}
+function resolveRefund(pay){
+  const c = refundC; if (!c) return;
+  const r = c.refund; refundC = null; refundPanel.hidden = true; paused = false; last = performance.now();
+  let d;
+  if (pay) { S.money = Math.max(0, S.money - r.price); d = r.legit ? .2 : .1; toast('Client remboursé'); }
+  else if (r.legit) { d = -.3; toast(r.f ? 'Elle repart furieuse' : 'Il repart furieux'); }
+  else { d = 0; toast(r.f ? 'Elle repart en râlant' : 'Il repart en râlant'); }
+  if (d) { S.rating = Math.max(1, Math.min(5, S.rating + d)); float(c.x, c.y - 60, starTxt(d), d > 0 ? '#c99a0e' : '#c8433a'); }
+  leave(c, pay ? 'happy' : r.legit ? 'angry' : 'meh');
+}
+document.getElementById('refundYes').onclick = () => resolveRefund(true);
+document.getElementById('refundNo').onclick = () => resolveRefund(false);
 
 const namePanel = document.getElementById('namePanel'), nameInput = document.getElementById('nameInput');
 function askName(){
