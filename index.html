@@ -156,7 +156,7 @@ body.cine #hud,body.cine #upBtn,body.cine #shopBtn,body.cine #toast{opacity:0;po
       <button type="button" id="speedBtn">Vitesse test : x1</button>
     </div>
     <button type="button" id="renameBtn">Changer le nom</button>
-    <button type="button" id="soundBtn">Son : activé</button>
+    <div class="two"><button type="button" id="musicBtn">Musique : oui</button><button type="button" id="soundBtn">Bruitages : oui</button></div>
     <div id="resetZone"></div>
     <button type="button" id="closeBtn" class="go">Reprendre</button>
   </div>
@@ -353,6 +353,7 @@ function enterShop(id, quiet){
   player.x = 90; player.y = 372;
   workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5;
   applyUpgrades(); lastStars = '';
+  if (actx) Music.play(id);
   const got = Math.floor(GAME.pending[id] || 0);
   if (got > 0) { S.cash += got; GAME.pending[id] = 0; if (!quiet) toast('Pendant ton absence, ' + (S.name || CFG.text.short) + ' a gagné ' + got + ' € : ramasse-les à la caisse'); }
 }
@@ -415,22 +416,169 @@ function load(data){
   enterShop(GAME.current, true);
 }
 
-// ---------- Son ----------
-let actx = null, lastBlip = 0;
+// ---------- Son : musiques d'ambiance et bruitages, synthétisés en direct (aucun fichier) ----------
+let actx = null, lastBlip = 0, sfxBus = null, musicBus = null, musicOn = true;
+const MUSIC_VOL = .55;
 function audioOn(){
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
-  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ return; }
+  sfxBus = actx.createGain(); sfxBus.connect(actx.destination);
+  musicBus = actx.createGain(); musicBus.gain.value = musicOn ? MUSIC_VOL : 0; musicBus.connect(actx.destination);
+  Music.play(SHOP_ID);
 }
 function blip(f = 700, d = .07, type = 'sine', v = .05){
   if (muted || !actx) return;
   const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t);
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
-  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + .02);
+  o.connect(g).connect(sfxBus); o.start(t); o.stop(t + d + .02);
 }
 function tick(f){ const n = performance.now(); if (n - lastBlip > 60) { lastBlip = n; blip(f, .05, 'triangle', .035); } }
 function chime(){ blip(880, .12, 'sine', .05); setTimeout(() => blip(1320, .16, 'sine', .045), 90); }
 function fanfare(){ [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => blip(f, .18, 'triangle', .05), i * 110)); }
+
+const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+let noiseBuf = null;
+function noise(){
+  if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate * .5, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const s = actx.createBufferSource(); s.buffer = noiseBuf; return s;
+}
+// bruitages, tous à faible volume et limités pour ne pas saturer
+const sfxLast = {};
+const sfxOk = (k, gap) => { if (muted || !actx) return false; const n = performance.now(); if (n - (sfxLast[k] || 0) < gap) return false; sfxLast[k] = n; return true; };
+function tone(t, f, d, v, type = 'sine', f2){
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(sfxBus); o.start(t); o.stop(t + d + .05);
+}
+const sfx = {
+  // clochette de porte quand un client entre
+  bell(){ if (!sfxOk('bell', 400)) return; const t = actx.currentTime; tone(t, 1568, .5, .035); tone(t + .09, 2093, .6, .03); },
+  // fournée prête
+  ding(){ if (!sfxOk('ding', 500)) return; tone(actx.currentTime, 1760, .35, .02); },
+  // tiroir-caisse : clic puis « ka-ching »
+  register(){
+    if (!sfxOk('reg', 150)) return; const t = actx.currentTime;
+    const n = noise(), f = actx.createBiquadFilter(), g = actx.createGain(); f.type = 'highpass'; f.frequency.value = 3000;
+    g.gain.setValueAtTime(.08, t); g.gain.exponentialRampToValueAtTime(.0001, t + .06); n.connect(f).connect(g).connect(sfxBus); n.start(t); n.stop(t + .08);
+    tone(t + .05, 2637, .45, .05); tone(t + .05, 3951, .35, .025); tone(t + .13, 3136, .5, .04);
+  },
+  // client fâché : petit grognement
+  grumble(){ if (!sfxOk('grr', 700)) return; const t = actx.currentTime; tone(t, 150, .22, .05, 'sawtooth', 110); tone(t + .2, 130, .25, .04, 'sawtooth', 95); },
+  // voleur : sifflet
+  whistle(){ if (!sfxOk('whi', 500)) return; const t = actx.currentTime; tone(t, 1800, .18, .05, 'sine', 2600); tone(t + .2, 2600, .3, .05, 'sine', 1500); },
+  // voiture de luxe qui arrive
+  engine(){
+    if (!sfxOk('car', 900)) return; const t = actx.currentTime;
+    const o = actx.createOscillator(), f = actx.createBiquadFilter(), g = actx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(48, t); o.frequency.linearRampToValueAtTime(70, t + .4); o.frequency.linearRampToValueAtTime(40, t + 1.1);
+    f.type = 'lowpass'; f.frequency.value = 260; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.06, t + .15); g.gain.exponentialRampToValueAtTime(.0001, t + 1.2);
+    o.connect(f).connect(g).connect(sfxBus); o.start(t); o.stop(t + 1.3);
+  },
+  // contrôle de l'URSSAF : « tan-tan-taaan »
+  sting(){
+    if (!sfxOk('sting', 1000)) return; const t = actx.currentTime;
+    [[0, 55, .22], [.26, 55, .22], [.52, 51, .9]].forEach(([dt, m, d]) => { tone(t + dt, midiHz(m), d, .07, 'sawtooth'); tone(t + dt, midiHz(m - 12), d, .06, 'square'); });
+  },
+  refuse(){ if (!sfxOk('ref', 300)) return; tone(actx.currentTime, 180, .14, .04, 'square', 140); },
+};
+
+// ----- instruments de musique -----
+function voice(t, d, v, a = .02, r = .1){
+  const g = actx.createGain();
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + a);
+  g.gain.setValueAtTime(v, t + Math.max(a + .01, d - r)); g.gain.exponentialRampToValueAtTime(.0001, t + d + r);
+  g.connect(musicBus); return g;
+}
+const INST = {
+  // accordéon : deux dents de scie désaccordées, filtrées, avec un léger vibrato
+  accordion(t, m, d, v){
+    const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500; f.connect(voice(t, d, v, .04, .08));
+    const lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 5.5; lg.gain.value = 5; lfo.connect(lg);
+    [-8, 8].forEach(c => { const o = actx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midiHz(m); o.detune.value = c; lg.connect(o.detune); o.connect(f); o.start(t); o.stop(t + d + .2); });
+    lfo.start(t); lfo.stop(t + d + .2);
+  },
+  // mandoline : attaque pincée qui s'éteint vite
+  pluck(t, m, d, v){
+    const dd = Math.min(d, .35), g = actx.createGain(), f = actx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(900, t + dd);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + dd + .05);
+    f.connect(g).connect(musicBus);
+    ['triangle', 'sawtooth'].forEach((ty, i) => { const o = actx.createOscillator(); o.type = ty; o.frequency.value = midiHz(m); const og = actx.createGain(); og.gain.value = i ? .35 : 1; o.connect(og).connect(f); o.start(t); o.stop(t + dd + .1); });
+  },
+  bass(t, m, d, v){ const o = actx.createOscillator(); o.type = 'triangle'; o.frequency.value = midiHz(m); o.connect(voice(t, d, v, .01, .06)); o.start(t); o.stop(t + d + .1); },
+  // piano électrique doux : sinus avec une harmonique qui s'éteint
+  ep(t, m, d, v){
+    const g = actx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + d + .5); g.connect(musicBus);
+    [[1, 1], [2, .22], [3, .08]].forEach(([k, a]) => { const o = actx.createOscillator(), og = actx.createGain(); o.frequency.value = midiHz(m) * k; og.gain.value = a; o.connect(og).connect(g); o.start(t); o.stop(t + d + .6); });
+  },
+  hat(t, m, d, v){
+    const n = noise(), f = actx.createBiquadFilter(), g = actx.createGain(); f.type = 'highpass'; f.frequency.value = 7500;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); n.connect(f).connect(g).connect(musicBus); n.start(t); n.stop(t + .07);
+  },
+};
+
+// ----- les trois morceaux (compositions originales, en boucle) -----
+// chaque morceau : durée d'un pas (s), nombre de pas, et la liste des notes [pas, instrument, notes midi, durée en pas, volume]
+function buildTracks(){
+  const T = {};
+  // Boulangerie : valse musette à l'accordéon, en do majeur (3 temps, 2 pas par temps)
+  {
+    const ev = [], chords = [[48, [60, 64, 67]], [43, [59, 62, 65]], [43, [59, 62, 65]], [48, [60, 64, 67]], [48, [60, 64, 67]], [41, [57, 60, 65]], [43, [59, 62, 65]], [48, [60, 64, 67]]];
+    chords.forEach(([b, c], bar) => { const s = bar * 6; ev.push([s, 'bass', [b], 1.8, .3], [s + 2, 'accordion', c, 1.2, .022], [s + 4, 'accordion', c, 1.2, .022]); });
+    [[0, 76, 1], [1, 79, 1], [2, 76, 1], [3, 74, 1.5], [4.5, 72, .5], [5, 71, 1], [6, 74, 1], [7, 77, 1], [8, 74, 1], [9, 72, 2], [11, 67, 1],
+     [12, 76, 1], [13, 79, 1], [14, 84, 1], [15, 81, 1.5], [16.5, 79, .5], [17, 77, 1], [18, 76, 1], [19, 74, 1], [20, 71, 1], [21, 72, 3]]
+      .forEach(([b, m, d]) => ev.push([b * 2, 'accordion', [m], d * 2 - .2, .05]));
+    T.boulangerie = { step:.27, steps:48, ev };
+  }
+  // Pizzeria : tarentelle à la mandoline, en la mineur (6/8)
+  {
+    const ev = [], chords = [[45, 52, [57, 60, 64]], [40, 47, [56, 59, 62]], [40, 47, [56, 59, 62]], [45, 52, [57, 60, 64]], [45, 52, [57, 60, 64]], [38, 45, [57, 62, 65]], [40, 47, [56, 59, 62]], [45, 52, [57, 60, 64]]];
+    chords.forEach(([r, f5, c], bar) => { const s = bar * 6; ev.push([s, 'bass', [r], 1.6, .32], [s + 3, 'bass', [f5], 1.6, .26]); [1, 2, 4, 5].forEach(k => ev.push([s + k, 'pluck', c, .8, .022])); });
+    [[0, 76, 2], [2, 74, 1], [3, 72, 2], [5, 71, 1], [6, 71, 2], [8, 72, 1], [9, 74, 3], [12, 76, 2], [14, 74, 1], [15, 71, 2], [17, 68, 1], [18, 69, 6],
+     [24, 72, 2], [26, 74, 1], [27, 76, 2], [29, 77, 1], [30, 77, 2], [32, 76, 1], [33, 74, 3], [36, 76, 2], [38, 74, 1], [39, 72, 2], [41, 71, 1], [42, 69, 3], [45, 64, 3]]
+      .forEach(([s, m, d]) => { for (let k = 0; k < d; k++) ev.push([s + k, 'pluck', [m], 1, k ? .04 : .06]); });
+    T.pizzeria = { step:.15, steps:48, ev };
+  }
+  // Boutique de luxe : lounge feutré au piano électrique, en ré dorien (4 temps, 2 pas par temps)
+  {
+    const ev = [], chords = [[38, [53, 57, 60, 64]], [43, [53, 59, 64]], [36, [52, 55, 59, 62]], [45, [55, 58, 61, 64]], [38, [53, 57, 60, 64]], [43, [53, 59, 64]], [40, [55, 59, 62]], [45, [55, 61, 64]]];
+    chords.forEach(([r, c], bar) => {
+      const s = bar * 8;
+      [0, 7, 12, 7].forEach((iv, k) => ev.push([s + k * 2, 'bass', [r + iv], 1.7, .26]));
+      ev.push([s, 'ep', c, 5, .03], [s + 5, 'ep', c, 1.5, .022]);
+      for (let k = 1; k < 8; k += 2) ev.push([s + k, 'hat', [0], .2, .012]);
+    });
+    [[.5, 69, 1], [1.5, 72, 1], [3, 76, 1], [4, 74, 2], [6.5, 71, 1], [8, 71, 1], [9, 72, 1], [10, 76, 2], [12.5, 73, 1], [14, 70, 1.5],
+     [16.5, 69, 1], [17.5, 72, 1], [19, 77, 1], [20, 76, 1.5], [22, 74, 1], [24, 74, 1], [25, 71, 1], [26, 67, 2], [28, 69, 3]]
+      .forEach(([b, m, d]) => ev.push([b * 2, 'ep', [m], d * 2, .06]));
+    T.luxe = { step:.36, steps:64, ev };
+  }
+  for (const k in T) { const tr = T[k]; tr.at = []; tr.ev.forEach(e => (tr.at[Math.round(e[0])] = tr.at[Math.round(e[0])] || []).push(e)); }
+  return T;
+}
+const TRACKS = buildTracks();
+// lecteur : programme les notes un peu en avance, et enchaîne en boucle
+const Music = {
+  cur:null, pos:0, next:0, timer:null,
+  play(id){
+    if (!actx || !TRACKS[id] || this.cur === id) return;
+    this.cur = id; this.pos = 0; this.next = actx.currentTime + .15;
+    if (!this.timer) this.timer = setInterval(() => this.tick(), 40);
+  },
+  tick(){
+    if (!actx || !this.cur || actx.state !== 'running') return;
+    const tr = TRACKS[this.cur];
+    if (this.next < actx.currentTime - .1) this.next = actx.currentTime + .05;
+    while (this.next < actx.currentTime + .25) {
+      if (musicOn) (tr.at[this.pos] || []).forEach(([, i, ms, d, v]) => ms.forEach(m => INST[i](this.next, m, d * tr.step, v)));
+      this.next += tr.step; this.pos = (this.pos + 1) % tr.steps;
+    }
+  },
+  level(v){ if (musicBus) musicBus.gain.setTargetAtTime(v, actx.currentTime, .3); },
+  duck(on){ this.level(musicOn ? (on ? MUSIC_VOL * .2 : MUSIC_VOL) : 0); },
+};
 
 // ---------- Entrées ----------
 const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
@@ -563,7 +711,7 @@ function spawnCustomer(){
       c.path = [[spot, 696], [DOOR_OUT.x, 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [VSLOTS[slot], 490]];
       c.car = { x:side < 0 ? -50 : 410, y:705, tx:spot, side:side < 0 ? -60 : 420, state:'arrive', who:c,
         color:CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)] };
-      cars.push(c.car);
+      cars.push(c.car); sfx.engine();
     }
   }
   customers.push(c);
@@ -602,6 +750,7 @@ function sitDown(c){
   c.seat = i; c.state = 'sit'; c.path = [[seat.x, 530], [seat.x, seat.y]];
 }
 function leave(c, mood){
+  if (mood === 'angry') sfx.grumble();
   c.state = 'leave'; c.mood = mood; c.slot = null;
   c.path = [[DOOR_IN.x, DOOR_IN.y], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_OUT.x, 700], [c.side, 700]];
 }
@@ -615,7 +764,8 @@ function updateCustomers(dt){
   if (spawnT <= 0) { spawnCustomer(); spawnT = interval * rnd(.75, 1.25); }
   for (const c of customers) {
     if (c.state === 'enter') {
-      if (followPath(c, 62, dt)) { if (c.refuse) { c.state = 'refused'; c.t = 0; } else c.state = 'shop'; }
+      if (!c.bell && !c.refuse && c.y < 626) { c.bell = true; sfx.bell(); }
+      if (followPath(c, 62, dt)) { if (c.refuse) { c.state = 'refused'; c.t = 0; sfx.refuse(); } else c.state = 'shop'; }
     } else if (c.state === 'refused') {
       c.t += dt;
       if (c.t > 1.2) { c.state = 'leave'; c.mood = 'meh'; c.path = [[DOOR_OUT.x, 696], [c.side, 700]]; }
@@ -634,7 +784,7 @@ function updateCustomers(dt){
         // le voleur file sans passer par la caisse
         leave(c, 'thief'); c.path.shift(); c.path.unshift([180, 560]);
         toast('Au voleur ! Un client file avec ' + c.got + ' ' + (c.got > 1 ? PRODUCTS[c.want].plural : PRODUCTS[c.want].name.toLowerCase()));
-        blip(330, .25, 'sawtooth', .04);
+        sfx.whistle();
       }
       else if (c.got >= c.qty) toQueue(c);
       else if (c.pat <= 0) { if (c.got > 0) toQueue(c); else { review(c, 1); leave(c, 'angry'); } }
@@ -682,7 +832,6 @@ function updateInspector(dt){
       inspector = { x:-14, y:700, side:-14, state:'in', t:0, cine:true,
         path:[[DOOR_OUT.x, 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [60, 560], [230, 560], [250, 520]] };
       cineOn(true);
-      blip(220, .3, 'square', .03); setTimeout(() => blip(180, .4, 'square', .03), 250);
     }
   }
   const e = inspector; if (!e) return;
@@ -705,6 +854,7 @@ function updateInspector(dt){
 // mode cinéma : bandes noires, légende, le reste du jeu attend
 function cineOn(on){
   document.body.classList.toggle('cine', on);
+  Music.duck(on); if (on) sfx.sting();
   if (on) document.getElementById('cineCap').textContent = 'Contrôle de l\'URSSAF !';
   if (on) { joy.on = false; joy.dx = joy.dy = 0; }
 }
@@ -820,7 +970,7 @@ function updatePlayer(dt){
   }
   if (S.cash > 0 && near(player, CASH_Z)) {
     float(player.x, player.y - 40, '+' + S.cash + ' €', '#8a6410');
-    S.money += S.cash; S.cash = 0; chime();
+    S.money += S.cash; S.cash = 0; sfx.register();
   }
   for (const u of visiblePads()) {
     if (!near(player, { x:u.x, y:u.y, w:56, h:44 })) continue;
@@ -844,7 +994,7 @@ function updateWorld(dt){
     if ((o.kind === 'pat' || o.kind === 'shelf') && st.in < 2) { if (CFG.patSelf || o.kind === 'shelf') st.in++; else if (S.reserve > 0) { S.reserve--; st.in++; } }
     if (st.in >= p.need && st.out < OV_OUT_CAP) {
       st.prog += dt;
-      if (st.prog >= p.time) { st.prog = 0; st.in -= p.need; st.out++; }
+      if (st.prog >= p.time) { st.prog = 0; st.in -= p.need; st.out++; sfx.ding(); }
     }
   }
   if (!CFG.noRaw && has('fournisseur') && S.reserve < RES_CAP) {
@@ -1415,8 +1565,14 @@ function openMenu(){ paused = true; panel.hidden = false; resetButton(); stats()
 function closeMenu(){ paused = false; panel.hidden = true; last = performance.now(); }
 menuBtn.onclick = () => { audioOn(); openMenu(); };
 document.getElementById('closeBtn').onclick = closeMenu;
-soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = 'Son : ' + (muted ? 'coupé' : 'activé'); try { localStorage.setItem(KEY + '-mute', muted ? '1' : '0'); } catch(e){} };
-try { muted = localStorage.getItem(KEY + '-mute') === '1'; soundBtn.textContent = 'Son : ' + (muted ? 'coupé' : 'activé'); } catch(e){}
+soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = 'Bruitages : ' + (muted ? 'non' : 'oui'); try { localStorage.setItem(KEY + '-mute', muted ? '1' : '0'); } catch(e){} };
+try { muted = localStorage.getItem(KEY + '-mute') === '1'; soundBtn.textContent = 'Bruitages : ' + (muted ? 'non' : 'oui'); } catch(e){}
+const musicBtn = document.getElementById('musicBtn');
+musicBtn.onclick = () => {
+  musicOn = !musicOn; musicBtn.textContent = 'Musique : ' + (musicOn ? 'oui' : 'non'); Music.duck(false);
+  try { localStorage.setItem(KEY + '-music', musicOn ? '1' : '0'); } catch(e){}
+};
+try { musicOn = localStorage.getItem(KEY + '-music') !== '0'; musicBtn.textContent = 'Musique : ' + (musicOn ? 'oui' : 'non'); } catch(e){}
 // Mode test : argent et vitesse
 document.getElementById('cash100').onclick = () => { S.money += 100; save(); toast('+100 € (mode test)'); };
 document.getElementById('cash1000').onclick = () => { S.money += 1000; save(); toast('+1 000 € (mode test)'); };
@@ -1446,7 +1602,10 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 addEventListener('pagehide', save);
-document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else last = performance.now(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { save(); if (actx) actx.suspend(); }
+  else { last = performance.now(); if (actx) actx.resume(); }
+});
 
 // ---------- Case Améliorations ----------
 const upPanel = document.getElementById('upPanel'), upList = document.getElementById('upList'), upDot = document.getElementById('upDot');
