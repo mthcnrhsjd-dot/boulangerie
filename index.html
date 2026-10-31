@@ -88,7 +88,7 @@ body.cine #hud,body.cine #upBtn,body.cine #shopBtn,body.cine #toast{opacity:0;po
   box-shadow:0 3px 0 var(--ink);padding:9px 14px;cursor:pointer}
 #upDot{position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;background:#c8433a;border:2px solid var(--ink)}
 #upBtn:focus-visible,#speedHud:focus-visible{outline:3px solid var(--crust);outline-offset:2px}
-#upPanel,#shopPanel,#refundPanel,#pseudoPanel,#lbPanel{position:fixed;inset:0;background:rgba(36,48,58,.6);display:flex;align-items:center;justify-content:center;padding:0 max(16px,env(safe-area-inset-left,0px))}
+#upPanel,#shopPanel,#refundPanel,#pseudoPanel,#lbPanel,#skinPanel{position:fixed;inset:0;background:rgba(36,48,58,.6);display:flex;align-items:center;justify-content:center;padding:0 max(16px,env(safe-area-inset-left,0px))}
 .upg{display:flex;align-items:center;gap:10px;border:2px solid var(--ink);border-radius:14px;background:#fff;padding:9px 10px}
 .upg + .upg{margin-top:8px}
 .upg .txt{flex:1;min-width:0}
@@ -160,6 +160,14 @@ body.cine #hud,body.cine #upBtn,body.cine #shopBtn,body.cine #toast{opacity:0;po
     <button type="button" id="lbClose" class="go">Retour au jeu</button>
   </div>
 </div>
+<div id="skinPanel" hidden>
+  <div class="panel" role="dialog" aria-label="Vestiaire">
+    <h2>Vestiaire</h2>
+    <p>Chaque commerce ouvert t'offre une tenue. L'autre s'achète.</p>
+    <div id="skinList"></div>
+    <button type="button" id="skinClose" class="go">Retour au jeu</button>
+  </div>
+</div>
 <div id="refundPanel" hidden>
   <div class="panel" role="dialog" aria-label="Demande de remboursement">
     <h2 id="refundTitle"></h2>
@@ -193,6 +201,7 @@ body.cine #hud,body.cine #upBtn,body.cine #shopBtn,body.cine #toast{opacity:0;po
       <div class="two"><button type="button" id="cash100">+100 €</button><button type="button" id="cash1000">+1 000 €</button></div>
       <button type="button" id="speedBtn">Vitesse test : x1</button>
     </div>
+    <button type="button" id="skinBtn" class="go">Vestiaire</button>
     <button type="button" id="lbBtn" class="go">Classement</button>
     <button type="button" id="renameBtn">Changer le nom</button>
     <div class="two"><button type="button" id="musicBtn">Musique : oui</button><button type="button" id="soundBtn">Bruitages : oui</button></div>
@@ -231,6 +240,9 @@ function makeOvens(raw, p, k = 'four'){
     { id:'patisserie',     kind:'pat',  input:null, prod:p[4], x:185, y:248, rot:0,         unlock:'patissier', zone:{x:185,y:282,w:64,h:28} },
   ];
 }
+// restaurant : 6 tables de 2 couverts, 2 ouvertes au départ, les autres à acheter
+const RESTO_TABLES = [{x:55,y:390},{x:145,y:390},{x:235,y:390},{x:55,y:500},{x:145,y:500},{x:235,y:500}]
+  .map((t, i) => Object.assign(t, { need:[null, null, 'salle3', 'salle2', 'salle2', 'salle3'][i] }));
 const SHOPS = {
   boulangerie: {
     products:PRODUCTS_B, order:['baguette','croissant','pac','sandwich','macaron'],
@@ -339,7 +351,7 @@ const SHOPS = {
       { id:'sandwich', kind:'sand', input:'skincare', prod:'coffret', x:332, y:380, rot:Math.PI/2, unlock:'coffret', zone:{x:292,y:380,w:44,h:58} },
     ],
     raw:null, noRaw:true, selfServe:true, beauty:true, makeup:true, thief:true, reserveWall:true, vitCap:10,
-    mirror:false, locked:true, patSelf:true, payTime:.9, passiveMul:12, passiveCap:6000, priceMul:12,
+    mirror:false, locked:true, patSelf:true, payTime:.9, passiveMul:12, passiveCap:6000, priceMul:12, next:'resto',
     arrive:'Tu as racheté la parfumerie. Rénove-la pour ouvrir !',
     start:{ bought:['fournisseur'], reserve:0, vit:{ skincare:4 }, oven:0 },
     gondolas:{ skincare:{x:110,y:300}, maquillage:{x:250,y:300}, cheveux:{x:110,y:430}, corps:{x:250,y:430}, coffret:{x:90,y:540} },
@@ -362,12 +374,59 @@ const SHOPS = {
       { id:'conseillere', name:'Conseillère beauté',   sub:'+1 article par client', price:7200,  x:300, y:250, after:['coffret'],      msg:'La conseillère donne envie : chaque client prend un article de plus' },
       { id:'caisse2',     name:'2e caisse',            sub:'file deux fois plus rapide', price:6000, x:180, y:365, after:['conseillere'], msg:'Deuxième caisse ouverte : la file avance deux fois plus vite' },
       { id:'renovation',  name:'Façade lumineuse',     sub:'la touche finale',      price:15000, x:180, y:365, after:['caisse2'],      msg:'Façade lumineuse : ta parfumerie brille sur toute la station !' },
+      { id:'local',       name:'Racheter le restaurant', sub:'cuisine gastronomique', price:40000, x:180, y:365, after:['renovation'], msg:'' },
     ],
     theme:{ kitchen:['#d9d6d3','#c8c4c0'], kitchenReno:['#e2dfdc','#d0ccc8'], shop:'planks', shopCol:['#f6e6ea','#e9cfd7'], shopReno:['#fbeef2','#f0d6de'], signLit:'#f58bb0', rug:'#e05a7a' },
     text:{ defaultName:'Parfumerie', ask:'Comment s\'appelle ta parfumerie ?', go:'Ouvrir ma parfumerie',
       ideas:['Éclat des Cimes','Glow Alpin','Beauté d\'Altitude'], source:'', putRaw:'', take:'', wait:'',
       sandTo:'Apporte des soins coréens au comptoir coffrets', sand:'Coffrets', pat:'', toVit:'Mets les produits dans le bon rayon',
       final:'Ta parfumerie est la plus glamour de la station !', short:'Parfumerie' },
+  },
+  resto: {
+    products:{
+      veloute:  { name:'Velouté', plural:'veloutés',                          price:90,  time:2.6, need:1 },
+      stjacques:{ name:'Saint-Jacques', plural:'Saint-Jacques',               price:140, time:3.0, need:1 },
+      boeuf:    { name:'Filet de bœuf', plural:'filets de bœuf',              price:180, time:3.4, need:1 },
+      truffe:   { name:'Bœuf à la truffe', plural:'bœufs à la truffe',        price:330, time:2.4, need:1 },
+      souffle:  { name:'Soufflé au chocolat', plural:'soufflés au chocolat',  price:110, time:3.6, need:1 },
+    },
+    order:['veloute','stjacques','boeuf','truffe','souffle'],
+    // 3 fourneaux, une table de dressage qui truffe le bœuf, le chef pâtissier qui fait les soufflés
+    ovens:[
+      { id:'four_pain',      kind:'four', input:'frais', prod:'veloute',   x:120, y:98,  rot:0,         unlock:null,        zone:{x:120,y:150,w:56,h:40} },
+      { id:'four_croissant', kind:'four', input:'frais', prod:'stjacques', x:192, y:98,  rot:0,         unlock:'croissant', zone:{x:192,y:150,w:56,h:40} },
+      { id:'four_pac',       kind:'four', input:'frais', prod:'boeuf',     x:264, y:98,  rot:0,         unlock:'pac',       zone:{x:264,y:150,w:56,h:40} },
+      { id:'sandwich',       kind:'sand', input:'boeuf', prod:'truffe',    x:332, y:212, rot:Math.PI/2, unlock:'sandwich',  zone:{x:292,y:212,w:44,h:58} },
+      { id:'patisserie',     kind:'pat',  input:null,    prod:'souffle',   x:185, y:248, rot:0,         unlock:'patissier', zone:{x:185,y:282,w:64,h:28} },
+    ],
+    raw:'frais', resto:true, mirror:false, locked:true, patSelf:true, staffSpeed:92, payTime:.8,
+    passiveMul:25, passiveCap:15000, priceMul:30,
+    arrive:'Tu as racheté le restaurant. Rénove la salle pour ouvrir !',
+    start:{ bought:['fournisseur'], reserve:12, vit:{}, oven:0 },
+    layout:{ caisse:{x:318,y:528,w:56,h:30}, cash:{x:322,y:478,w:44,h:40}, trash:{x:334,y:292,w:38,h:38}, q:i => [300 - i * 24, 594], app:{x:332,y:530}, srv:[322,372] },
+    seats:RESTO_TABLES.flatMap((t, i) => [-1, 1].map(side => ({ x:t.x + side * 20, y:t.y + 2, table:i, side, need:t.need }))),
+    upg:[
+      { id:'ouverture',  name:'Rénover la salle',     sub:'nappes et argenterie',  price:4000,  x:180, y:330, after:[],                     msg:'La salle est prête : les premiers clients s\'installent' },
+      { id:'apprenti',   name:'Caissier',             sub:'tient la caisse',       price:2500,  x:320, y:420, after:['ouverture'],          msg:'Le caissier encaisse les clients. Pense à ramasser l\'argent' },
+      { id:'croissant',  name:'Fourneau de la mer',   sub:'Saint-Jacques',         price:4000,  x:192, y:150, after:['apprenti'],           msg:'Nouveau plat : Saint-Jacques !' },
+      { id:'salle2',     name:'Deux tables de plus',  sub:'plus de couverts',      price:5000,  x:60,  y:330, after:['croissant'],          msg:'Deux nouvelles tables dans la salle' },
+      { id:'mitron',     name:'Commis de cuisine',    sub:'remplit les fourneaux', price:5000,  x:180, y:330, after:['croissant'],          msg:'Le commis met les produits frais sur les fourneaux' },
+      { id:'boulanger',  name:'Serveur',              sub:'porte les plats',       price:6500,  x:180, y:330, after:['mitron'],             msg:'Le serveur porte les plats aux tables' },
+      { id:'pac',        name:'Grill à viande',       sub:'filet de bœuf',         price:7000,  x:264, y:150, after:['boulanger'],          msg:'Nouveau plat : filet de bœuf !' },
+      { id:'serveur',    name:'Plongeur',             sub:'débarrasse les tables', price:6000,  x:60,  y:330, after:['salle2','boulanger'], msg:'Le plongeur débarrasse les tables' },
+      { id:'sandwich',   name:'Table de dressage',    sub:'bœuf à la truffe',      price:9000,  x:292, y:212, after:['pac'],                msg:'Table de dressage : apporte-lui des filets de bœuf' },
+      { id:'patissier',  name:'Chef pâtissier',       sub:'soufflés au chocolat',  price:11000, x:185, y:270, after:['sandwich'],           msg:'Le chef pâtissier prépare des soufflés' },
+      { id:'boulanger2', name:'2e serveur',           sub:'porte les plats',       price:9000,  x:180, y:330, after:['patissier'],          msg:'Un deuxième serveur rejoint la salle' },
+      { id:'salle3',     name:'Deux tables de plus',  sub:'salle complète',        price:9000,  x:60,  y:330, after:['serveur','patissier'],msg:'La salle est complète : 12 couverts' },
+      { id:'chariot',    name:'Chariot de desserts',  sub:'pourboires',            price:10000, x:320, y:420, after:['boulanger2'],         msg:'Le chariot de desserts passe entre les tables : pourboires !' },
+      { id:'enseigne',   name:'Article dans le journal', sub:'plus de clients',    price:14000, x:115, y:215, after:['chariot','salle3'],   msg:'L\'article fait venir toute la vallée' },
+      { id:'renovation', name:'Lustres en cristal',   sub:'la touche finale',      price:30000, x:180, y:330, after:['enseigne'],           msg:'Lustres en cristal : ton restaurant est le plus chic des Alpes !' },
+    ],
+    theme:{ kitchen:['#eef0f1','#d5dadd'], kitchenReno:['#eef0f1','#d5dadd'], shop:'planks', shopCol:['#6a2430','#5a1e28'], shopReno:['#7a1f2b','#6a1a25'], signLit:'#d4af37', rug:'#7a1f2b' },
+    text:{ defaultName:'Restaurant', ask:'Comment s\'appelle ton restaurant ?', go:'Ouvrir mon restaurant',
+      ideas:['La Table des Cimes','Le Grand Sommet','L\'Étoile des Neiges'], source:'Produits frais', putRaw:'Mets les produits frais sur un fourneau',
+      take:'Prends les produits frais livrés par le primeur', wait:'Le primeur arrive avec les produits frais…', sandTo:'Apporte des filets de bœuf à la table de dressage',
+      sand:'Dressage', pat:'Soufflés', final:'Ton restaurant est le plus chic des Alpes !', short:'Restaurant' },
   },
 };
 SHOPS.pizzeria.arrive = SHOPS.pizzeria.arrive || '';
@@ -406,7 +465,7 @@ const gzone = p => { const g = CFG.gondolas[p]; return { x:g.x, y:g.y + 26, w:88
 const theftOdds = () => CFG.thief ? (has('portique') ? .01 : has('vigile') ? .02 : .1) : (S.sold > 30 ? THIEF_ODDS : 0);
 
 // ---------- État ----------
-let S, GAME;
+let S, GAME, wardrobeNews = false;
 function freshState(cfg){
   const ov = {}; cfg.ovens.forEach(o => ov[o.id] = { in:0, out:0, prog:0 });
   if (ov.four_pain) ov.four_pain.in = cfg.start.oven;
@@ -414,7 +473,7 @@ function freshState(cfg){
   return { cash:0, bought:cfg.start.bought.slice(), paid:{}, vit, ov, reserve:cfg.start.reserve, sold:0, stack:[],
     lv:{ wspeed:0, wcap:0 }, name:'', rating:3.5, reviews:0, dirty:[] };
 }
-function newGame(){ return { money:0, lv:{ cap:0, speed:0 }, current:'boulangerie', shops:{ boulangerie:freshState(SHOPS.boulangerie) }, pending:{}, player:{ id:randId(), name:'' }, earned:0 }; }
+function newGame(){ return { money:0, lv:{ cap:0, speed:0 }, current:'boulangerie', shops:{ boulangerie:freshState(SHOPS.boulangerie) }, pending:{}, player:{ id:randId(), name:'' }, earned:0, skins:{ cur:'auto', owned:[] } }; }
 // l'argent est commun à tous les commerces : S.money pointe vers le portefeuille
 function attachWallet(st){
   delete st.money;
@@ -449,7 +508,7 @@ function enterShop(id, quiet){
   SEATS = CFG.seats || DEFAULT_SEATS;
   player.stack = (S.stack || []).filter(t => t === RAW || CFG.products[t]).slice(0, 12);
   player.x = 90; player.y = 372;
-  workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5;
+  workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5; cart = null; criticT = rnd(180, 300);
   influT = rnd(360, 600); refundT = rnd(180, 300); boostT = 0; influCine = null; refundC = null; flashes = []; refundPanel.hidden = true;
   applyUpgrades(); lastStars = '';
   if (actx) Music.play(id);
@@ -492,7 +551,7 @@ function load(data){
   let d = data && (data.shops || data.bought) ? data : null;
   if (!d) { try { d = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ d = null; } }
   if (d && d.shops) {
-    GAME = { money:d.money || 0, lv:Object.assign({ cap:0, speed:0 }, d.lv), current:d.current || 'boulangerie', shops:{}, pending:d.pending || {}, player:d.player, earned:d.earned };
+    GAME = { money:d.money || 0, lv:Object.assign({ cap:0, speed:0 }, d.lv), current:d.current || 'boulangerie', shops:{}, pending:d.pending || {}, player:d.player, earned:d.earned, skins:d.skins };
     for (const id in d.shops) if (SHOPS[id]) GAME.shops[id] = mergeShop(id, d.shops[id]);
     if (!GAME.shops.boulangerie) GAME.shops.boulangerie = freshState(SHOPS.boulangerie);
     // commerce suivant déjà payé mais absent de la sauvegarde : on le recrée
@@ -516,6 +575,7 @@ function load(data){
   }
   if (!GAME.player || !GAME.player.id) GAME.player = { id:randId(), name:(GAME.player && GAME.player.name) || '' };
   if (GAME.earned == null) GAME.earned = estimateEarned();
+  if (!GAME.skins || !Array.isArray(GAME.skins.owned)) { GAME.skins = { cur:'auto', owned:[] }; wardrobeNews = !!d; }
   if (!GAME.shops[GAME.current]) GAME.current = 'boulangerie';
   enterShop(GAME.current, true);
 }
@@ -743,6 +803,31 @@ function buildTracks(){
     refr.forEach(([s, m, d]) => { add(ev, 128 + s, 'lead', m, d - .2, .034); add(ev, 192 + s, 'lead', m, d - .2, .034); });
     T.beaute = { step:.127, steps:256, ev };
   }
+  // Restaurant : piano jazz chic, contrebasse qui marche, balais en swing (fa majeur, croches ternaires)
+  {
+    const ev = [], ch = { F:[41, [57, 60, 64]], Dm:[38, [57, 60, 65]], Gm:[43, [58, 62, 65]], C7:[48, [58, 64, 67]], Am:[45, [55, 60, 64]],
+      D7:[38, [54, 57, 60]], F7:[41, [57, 63, 67]], Bb:[46, [57, 62, 65]], Bbm:[46, [56, 61, 65]] };
+    const bars = [['F'], ['Dm'], ['Gm'], ['C7'], ['Am'], ['D7'], ['Gm'], ['C7'], ['F'], ['F7'], ['Bb'], ['Bbm'], ['Am'], ['D7'], ['Gm', 'C7'], ['F']];
+    const third = n => /m$/.test(n) ? 3 : 4;
+    bars.forEach((names, bar) => {
+      const s = bar * 12, next = ch[bars[(bar + 1) % 16][0]][0];
+      const line = names.length === 1 ? [ch[names[0]][0], ch[names[0]][0] + third(names[0]), ch[names[0]][0] + 7, next + 1]
+        : [ch[names[0]][0], ch[names[0]][0] + 7, ch[names[1]][0], next + 1];
+      line.forEach((m, k) => add(ev, s + k * 3, 'bass', m, 2.6, .24));
+      names.forEach((n, k) => { const at = s + k * 6; add(ev, at, 'ep', ch[n][1], 2, .016); add(ev, at + 5, 'ep', ch[n][1], 1, .012); });
+      [0, 3, 5, 6, 9, 11].forEach(k => add(ev, s + k, 'hat', 0, .2, k % 3 ? .006 : .011));
+    });
+    [[0, 0, 77, 5], [0, 5, 76, 1], [0, 6, 72, 6], [1, 0, 74, 3], [1, 3, 72, 2], [1, 5, 69, 7],
+     [2, 0, 70, 3], [2, 3, 74, 2], [2, 5, 77, 4], [2, 9, 76, 3], [3, 0, 76, 6], [3, 6, 74, 3], [3, 9, 72, 3],
+     [4, 0, 72, 3], [4, 3, 76, 2], [4, 5, 79, 7], [5, 0, 78, 5], [5, 5, 76, 1], [5, 6, 74, 3], [5, 9, 72, 3],
+     [6, 0, 70, 6], [6, 6, 74, 6], [7, 0, 79, 6], [7, 6, 76, 6],
+     [8, 0, 77, 3], [8, 3, 81, 2], [8, 5, 79, 4], [8, 9, 77, 3], [9, 0, 75, 6], [9, 6, 72, 6],
+     [10, 0, 74, 3], [10, 3, 77, 2], [10, 5, 81, 7], [11, 0, 80, 6], [11, 6, 77, 6],
+     [12, 0, 76, 3], [12, 3, 79, 2], [12, 5, 76, 4], [12, 9, 72, 3], [13, 0, 74, 5], [13, 5, 78, 7],
+     [14, 0, 77, 3], [14, 3, 74, 3], [14, 6, 76, 3], [14, 9, 70, 3], [15, 0, 72, 5], [15, 6, 77, 6]]
+      .forEach(([b, k, m, d]) => add(ev, b * 12 + k, 'ep', m, d - .3, .045));
+    T.resto = { step:.18, steps:192, ev };
+  }
   for (const k in T) { const tr = T[k]; tr.at = []; tr.ev.forEach(e => (tr.at[Math.round(e[0])] = tr.at[Math.round(e[0])] || []).push(e)); }
   return T;
 }
@@ -769,7 +854,8 @@ const Music = {
 };
 
 // ---------- Entrées ----------
-const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
+const cvs = document.getElementById('c');
+let ctx = cvs.getContext('2d');
 let scale = 1, ox = 0, oy = 0, dpr = 1;
 function resize(){
   dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -829,7 +915,7 @@ function toast(msg){
 }
 
 // ---------- Actions (joueur et employés) ----------
-const isGood = t => t !== 'flour' && t !== 'pate' && t !== 'paton';
+const isGood = t => t !== 'flour' && t !== 'pate' && t !== 'paton' && t !== 'frais';
 const removeOne = (c, t) => { const i = c.stack.lastIndexOf(t); if (i >= 0) c.stack.splice(i, 1); };
 function actReserve(c){
   if (!has('fournisseur') || S.reserve < 1 || c.stack.length >= c.cap) return false;
@@ -867,6 +953,7 @@ function buy(u){
   // l'URSSAF passe toutes les 5 améliorations, et toujours après la rénovation finale
   if ((S.bought.length % 5 === 0 || u.id === 'renovation') && !inspector) inspectT = 14;
   if (u.msg) toast(u.msg);
+  if (u.id === 'ouverture') newSkinToast();
 }
 
 // ---------- Clients ----------
@@ -874,6 +961,7 @@ const COATS = ['#c8433a','#3f6b8f','#3f6b4f','#d0893a','#7a5aa8','#2f8a86','#b95
 const HATS  = ['#e8e1d3','#c8433a','#f2b632','#3f6b8f','#6f8f55','#d36f9a'];
 function spawnCustomer(){
   if (CFG.selfServe) return spawnSelf();
+  if (CFG.resto) return spawnResto();
   const prods = products();
   const used = new Set(customers.filter(c => c.slot != null).map(c => c.slot));
   const free = VSLOTS.map((_, i) => i).filter(i => !used.has(i));
@@ -931,7 +1019,7 @@ function shopSelf(c, dt){
   if (c.t >= .6 && S.vit[p] > 0) { S.vit[p]--; c.basket.push(p); c.idx++; c.t = 0; c.pat = 25; c.ox = rnd(-28, 28); }
   else if (c.pat <= 0) { c.missed = (c.missed || 0) + 1; c.idx++; c.pat = 25; }
 }
-const earnOf = c => c.basket ? c.basket.reduce((a, p) => a + PRODUCTS[p].price, 0) : c.got * PRODUCTS[c.want].price;
+const earnOf = c => c.basket ? c.basket.reduce((a, p) => a + PRODUCTS[p].price, 0) : Math.round(c.got * PRODUCTS[c.want].price * boost());
 const soldOf = c => c.basket ? c.basket.length : c.got;
 function putBack(c){
   if (c.basket) c.basket.forEach(p => { S.vit[p] = Math.min(vitCap(), S.vit[p] + 1); });
@@ -983,15 +1071,197 @@ function sitDown(c){
 }
 function leave(c, mood){
   if (mood === 'angry') sfx.grumble();
-  c.state = 'leave'; c.mood = mood; c.slot = null;
+  c.state = 'leave'; c.mood = mood; c.slot = null; c.seat = null;
   c.path = [[DOOR_IN.x, DOOR_IN.y], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_OUT.x, 700], [c.side, 700]];
+}
+
+// ---------- Restaurant : service à table ----------
+// le client s'assoit, commande un plat, tu le lui apportes, il mange puis passe payer à la caisse
+const boost = () => CFG.resto ? 1 + .15 * (S.michelin || 0) : 1;   // chaque étoile du guide : +15 % sur les plats
+const seatOpen = i => !SEATS[i].need || has(SEATS[i].need);
+const seatZone = i => ({ x:SEATS[i].x, y:SEATS[i].y - 8, w:44, h:44 });
+let cart = null, cleanT = 0;
+function freeSeat(){
+  const taken = new Set(customers.filter(o => o.seat != null).map(o => o.seat));
+  const f = SEATS.map((_, i) => i).filter(i => seatOpen(i) && !taken.has(i) && !S.dirty.includes(i));
+  return f.length ? f[Math.floor(Math.random() * f.length)] : null;
+}
+function pickWant(prods){
+  const w = prods.map((_, i) => 1 + i * .6), tot = w.reduce((a, b) => a + b, 0);
+  let r = Math.random() * tot;
+  for (let i = 0; i < prods.length; i++) { r -= w[i]; if (r <= 0) return prods[i]; }
+  return prods[0];
+}
+function restoGuest(want){
+  const side = Math.random() < .5 ? -14 : 374;
+  return { x:side, y:700, side, state:'enter', slot:null, want, qty:1, got:0, pat:40, t:0, pay:0, wait:0, thief:false, dine:false, spent:0, seat:null,
+    path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [180 + rnd(-30, 30), 596]],
+    coat:COATS[Math.floor(Math.random() * COATS.length)], hat:HATS[Math.floor(Math.random() * HATS.length)], mood:null };
+}
+function spawnResto(){
+  if (customers.filter(c => c.state === 'shop' || c.state === 'enter').length >= 3 || customers.length >= 18 || queue.length >= 5) return;
+  customers.push(restoGuest(pickWant(products())));
+}
+function restoTick(c, dt){
+  if (c.state === 'shop') {
+    // l'influenceuse et l'inspecteur passent avant les autres pour la prochaine table libre
+    const vip = !c.influ && !c.critic && customers.some(o => (o.influ || o.critic) && o.state === 'shop');
+    const i = vip ? null : freeSeat();
+    if (i != null) { const s = SEATS[i]; c.seat = i; c.state = 'sit'; c.path = [[s.x, s.y + 34], [s.x, s.y]]; return true; }
+    c.t += dt;
+    if (c.influ || c.critic) return true;
+    if (S.dirty.length && c.t > 6) { float(c.x, c.y - 70, 'Tables sales !', '#c8433a'); review(c, 2); leave(c, 'angry'); }
+    else if (c.t > 9) { float(c.x, c.y - 70, 'Complet', '#7d8590'); leave(c, 'meh'); }
+    return true;
+  }
+  if (c.state === 'sit') { if (followPath(c, 62, dt)) { c.state = 'order'; c.wait = 0; } return true; }
+  if (c.state === 'order') {
+    c.wait += dt; c.pat -= dt;
+    if (c.pat <= 0 && !c.influ) { if (c.critic) criticDone(c, false); else review(c, 1); leave(c, 'angry'); }
+    return true;
+  }
+  if (c.state === 'eat') {
+    c.t += dt;
+    if (c.t > 8) { S.dirty.push(c.seat); c.seat = null; toQueue(c); }
+    return true;
+  }
+  return false;
+}
+function serveCustomer(c){
+  c.got = 1; c.state = 'eat'; c.t = 0; sfx.ding();
+  if (c.influ) influResult(c, true);
+  else if (c.critic) criticDone(c, c.wait <= 20);
+  else review(c, c.wait < 12 ? 5 : c.wait < 22 ? 4 : 3);
+}
+// l'inspecteur du guide : servi vite, il donne une étoile (3 au maximum)
+function spawnCritic(){
+  const c = restoGuest(pickWant(products())); c.critic = true; c.coat = '#4a4f57';
+  customers.push(c); toast('Un inspecteur du guide s\'est glissé parmi les clients… sers-le vite !'); sfx.sparkle();
+}
+function criticDone(c, ok){
+  if (c.done) return; c.done = true;
+  if (ok) {
+    S.michelin = Math.min(3, (S.michelin || 0) + 1);
+    float(c.x, c.y - 62, '+★ guide', '#c99a0e'); fanfare();
+    toast('L\'inspecteur est conquis : ' + S.michelin + (S.michelin > 1 ? ' étoiles' : ' étoile') + ' au guide ! Tes plats valent plus cher');
+  } else { toast('L\'inspecteur repart déçu… Il reviendra'); sfx.grumble(); }
+}
+// serveur de salle : apporte à chaque client le plat qu'il attend
+function restoThink(w){
+  const waiting = customers.filter(c => c.state === 'order' && !c.gone);
+  const claimed = new Set(workers.filter(o => o !== w && o.task && o.task.c).map(o => o.task.c));
+  const mine = waiting.filter(c => !claimed.has(c) && w.stack.includes(c.want)).sort((a, b) => a.pat - b.pat)[0];
+  if (mine) return { type:'serve', c:mine };
+  if (w.stack.length >= w.cap) return { type:'trash' };
+  const need = {};
+  waiting.filter(c => !claimed.has(c)).forEach(c => need[c.want] = (need[c.want] || 0) + 1);
+  workers.flatMap(o => o.stack).concat(player.stack).forEach(t => { if (need[t]) need[t]--; });
+  const o = OVENS.filter(unlocked).find(o => need[o.prod] > 0 && S.ov[o.id].out > 0);
+  return o ? { type:'take', o, max:need[o.prod] } : { type:'wait' };
+}
+// le commis garde la table de dressage approvisionnée en filets de bœuf
+function restoCommis(w){
+  const sand = OVENS.find(o => o.kind === 'sand'), grill = OVENS.find(o => o.prod === sand.input);
+  if (!unlocked(sand)) return null;
+  if (w.stack.includes(sand.input) && S.ov[sand.id].in < 3) return { type:'drop', o:sand };
+  if (!w.stack.length && S.ov[sand.id].in + S.ov[sand.id].out < 3 && S.ov[grill.id].out > 0) return { type:'take', o:grill, max:1 };
+  return null;
+}
+function deliver(w, c){
+  if (c.state === 'order' && !c.gone && w.stack.includes(c.want)) { removeOne(w, c.want); serveCustomer(c); }
+  return false;
+}
+function restoPlayer(dt){
+  for (const c of customers) if (c.state === 'order' && c.seat != null && player.stack.includes(c.want) && near(player, seatZone(c.seat))) {
+    removeOne(player, c.want); serveCustomer(c); tick(880);
+  }
+  // débarrasser une table sale : rester une demi-seconde à côté
+  const ds = S.dirty.find(i => near(player, seatZone(i)) && !customers.some(o => o.seat === i));
+  if (ds != null) { cleanT += dt; if (cleanT > .5) { cleanT = 0; S.dirty.splice(S.dirty.indexOf(ds), 1); tick(980); } } else cleanT = 0;
+}
+function restoHint(){
+  const st = player.stack, waiting = customers.filter(c => c.state === 'order' && c.seat != null);
+  const forMe = waiting.find(c => st.includes(c.want));
+  if (forMe) return ['Apporte « ' + PRODUCTS[forMe.want].name + ' » à sa table', SEATS[forMe.seat]];
+  const dirty = S.dirty.filter(i => !customers.some(o => o.seat === i));
+  if (dirty.length && !has('serveur') && (dirty.length >= 2 || !waiting.length)) return ['Débarrasse la table sale', SEATS[dirty[0]]];
+  const inHands = st.concat(workers.flatMap(w => w.stack));
+  const ready = c => OVENS.find(o => unlocked(o) && o.prod === c.want && S.ov[o.id].out > 0);
+  const need = waiting.find(c => !inHands.includes(c.want) && ready(c));
+  if (need && st.length < player.cap) return ['Prends « ' + PRODUCTS[need.want].name + ' », un client l\'attend', ready(need).zone];
+  // des clients attendent un plat qui ne cuit nulle part : il faut des produits frais
+  const stove = c => OVENS.find(o => unlocked(o) && o.prod === c.want && isOven(o));
+  if (!st.includes(RAW) && S.reserve > 0 && st.length < player.cap && waiting.some(c => !inHands.includes(c.want) && !ready(c) && stove(c) && !S.ov[stove(c).id].in))
+    return [CFG.text.take, FLOUR_Z];
+  return null;
+}
+// chariot de desserts : il passe entre les tables et récolte des pourboires
+function updateCart(dt){
+  if (!CFG.resto || !has('chariot')) return;
+  if (!cart) cart = { x:322, y:372, to:null };
+  if (!cart.to) cart.to = pick(RESTO_TABLES.filter(t => !t.need || has(t.need)));
+  if (moveTo(cart, cart.to.x, cart.to.y + 30, 34, dt)) cart.to = null;
+  for (const c of customers) if (c.state === 'eat' && !c.tip && Math.hypot(c.x - cart.x, c.y - cart.y) < 40) {
+    c.tip = true; const tip = Math.round(PRODUCTS[c.want].price * .3 * boost());
+    S.cash += tip; GAME.earned += tip; float(c.x, c.y - 56, '+' + tip + ' € pourboire', '#8a6410');
+  }
+}
+function drawCart(){
+  drawPerson({ x:cart.x - 15, y:cart.y, walk:cart.walk }, { body:'#f4efe6', apron:'#151515', hair:'#5a3424', hairStyle:'bun' });
+  circle(cart.x - 2, cart.y + 1, 2.5, '#333'); circle(cart.x + 14, cart.y + 1, 2.5, '#333');
+  rr(cart.x - 6, cart.y - 14, 24, 13, 3, '#d9dde0', '#5f666d', 1.2);
+  drawItem('souffle', cart.x + 1, cart.y - 17, .5); drawItem('souffle', cart.x + 11, cart.y - 17, .5);
+}
+// salle : cuisine carrelée en haut, moquette bordeaux et tables nappées en bas
+function drawRestoFloor(){
+  const reno = has('renovation');
+  ctx.fillStyle = '#eef0f1'; ctx.fillRect(0, 70, 360, 275);
+  ctx.strokeStyle = '#d5dadd'; ctx.lineWidth = 1;
+  for (let y = 70; y < 345; y += 22) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(360, y); ctx.stroke(); }
+  for (let x = 0; x < 360; x += 22) { ctx.beginPath(); ctx.moveTo(x, 70); ctx.lineTo(x, 345); ctx.stroke(); }
+  ctx.fillStyle = reno ? '#7a1f2b' : '#6a2430'; ctx.fillRect(0, 345, 360, 281);
+  ctx.fillStyle = 'rgba(212,175,55,.16)';
+  for (let y = 360, r = 0; y < 626; y += 28, r++) for (let x = (r % 2) * 14 + 7; x < 360; x += 28) { ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 4, y); ctx.fill(); }
+  rr(0, 341, 360, 6, 0, '#b9bfc4');
+}
+function drawRestoFurniture(){
+  if (S.michelin) text('★'.repeat(S.michelin) + ' au guide', 180, 40, 8.5, '#f2d06b');
+  if (has('renovation')) [[100, 445], [190, 445]].forEach(([x, y]) => { circle(x, y, 13, 'rgba(255,230,150,.22)'); circle(x, y, 5, '#d4af37', '#8a6410', 1); });
+  RESTO_TABLES.forEach((t, i) => {
+    if (t.need && !has(t.need)) { ctx.setLineDash([4, 4]); circle(t.x, t.y, 15, 'rgba(255,255,255,.05)', 'rgba(255,246,232,.35)', 1.4); ctx.setLineDash([]); return; }
+    [-1, 1].forEach(sd => circle(t.x + sd * 20, t.y + 4, 6.5, '#5e3b22', '#2c1a10', 1.2));
+    circle(t.x, t.y + 2, 15, 'rgba(0,0,0,.2)');
+    circle(t.x, t.y, 15, '#fbf8f2', '#b9ae9c', 1.4);
+    rr(t.x - 1, t.y - 9, 2, 6, 1, '#f4ead2'); circle(t.x, t.y - 10, 1.4, '#f2b632');
+    [0, 1].forEach(k => {
+      if (!S.dirty.includes(i * 2 + k)) return;
+      const px = t.x + (k ? 7 : -7);
+      circle(px, t.y + 1, 4.5, '#f4f7fa', '#9aa3a8', 1);
+      ctx.fillStyle = '#7a3b22'; [[-1.5, -1], [1.2, .6], [-.4, 1.6]].forEach(([a, b]) => ctx.fillRect(px + a, t.y + 1 + b, 1.2, 1.2));
+    });
+  });
+  rr(288, 540, 64, 24, 5, '#5e3b22'); ctx.fillStyle = '#7a4b2a'; ctx.fillRect(288, 540, 64, 5);
+  rr(306, 544, 28, 14, 3, '#3f4b4f', '#222', 1); ctx.fillStyle = '#9fd39a'; ctx.fillRect(309, 547, 22, 5);
+  text('Caisse', 320, 572, 7.5, '#f4ead2');
+}
+// fourneau en inox : deux feux, une casserole, le four en dessous
+function drawStoveBody(st, p){
+  rr(-31, -27, 62, 54, 6, '#cfd4d8', '#5f666d', 2);
+  rr(-27, -23, 54, 27, 4, '#2f3438');
+  [-13, 13].forEach(dx => {
+    circle(dx, -10, 9, '#454b51', '#1d2124', 1.2);
+    if (st.prog > 0) { ctx.globalAlpha = .55 + .3 * Math.sin(tclock * 9 + dx); circle(dx, -10, 7, null, '#ff8a3a', 2.2); ctx.globalAlpha = 1; }
+  });
+  circle(-13, -11, 7, '#8a9096', '#3a3f44', 1.2); rr(-7, -12.5, 11, 3, 1.5, '#3a3f44');
+  rr(-24, 8, 48, 14, 3, '#aab0b6', '#5f666d', 1); rr(-14, 10, 28, 2.5, 1.2, '#5f666d');
+  if (st.prog > 0) rr(-16, 24, 32 * (st.prog / p.time), 3, 1.5, '#f2b632');
 }
 
 function updateCustomers(dt){
   if (!isOpen()) return;
   const n = products().length;
   // une bonne note attire plus de monde : x0,8 à 5 étoiles, x1,28 à 1 étoile
-  const interval = (boostT > 0 ? .5 : 1) * .8 * Math.max(1.8, 4.6 - .9 * (n - 1)) * (has('enseigne') ? .75 : 1) * (1.4 - .12 * S.rating);
+  const interval = (boostT > 0 ? .5 : 1) * .8 * Math.max(1.8, 4.6 - .9 * (n - 1)) * (has('enseigne') ? .75 : 1) * (1.4 - .12 * S.rating) * (CFG.resto ? 1.4 : 1);
   spawnT -= dt;
   if (spawnT <= 0) { spawnCustomer(); spawnT = interval * rnd(.75, 1.25); }
   for (const c of customers) {
@@ -999,6 +1269,7 @@ function updateCustomers(dt){
     if (c.influ && influTick(c, dt)) continue;
     if (c.state === 'refundGo') { if (followPath(c, 62, dt)) { c.state = 'refundWait'; openRefund(c); } continue; }
     if (c.state === 'refundWait') continue;
+    if (CFG.resto && restoTick(c, dt)) continue;
     if (c.state === 'enter') {
       if (!c.bell && !c.refuse && c.y < 626) { c.bell = true; sfx.bell(); }
       if (followPath(c, 62, dt)) { if (c.refuse) { c.state = 'refused'; c.t = 0; sfx.refuse(); } else c.state = 'shop'; }
@@ -1035,7 +1306,7 @@ function updateCustomers(dt){
           float(c.x, c.y - 30, '+' + earn + ' €', '#8a6410'); blip(1200, .06, 'square', .02);
           queue.shift();
           if (c.influ) influResult(c, true);
-          else review(c, c.basket ? (c.missed ? 3 : c.spent < 40 ? 5 : 4) : c.spent < 22 ? 5 : c.spent < 38 ? 4 : 3);
+          else if (!CFG.resto) review(c, c.basket ? (c.missed ? 3 : c.spent < 40 ? 5 : 4) : c.spent < 22 ? 5 : c.spent < 38 ? 4 : 3);
           if (c.dine) sitDown(c); else leave(c, 'happy');
         }
       }
@@ -1113,7 +1384,7 @@ function updateCam(dt){
 const WALL_Y = 194;
 function makeWorker(role){
   const shop = role === 'serveur';
-  return { role, idx:workers.filter(w => w.role === role).length, x:shop ? LAYOUT.srv[0] : 185, y:shop ? LAYOUT.srv[1] : 262, stack:[], cap:role === 'mitron' ? 5 : 6, speed:CFG.selfServe ? 92 : 66, act:0, task:null, think:0 };
+  return { role, idx:workers.filter(w => w.role === role).length, x:shop ? LAYOUT.srv[0] : 185, y:shop ? LAYOUT.srv[1] : 262, stack:[], cap:role === 'mitron' ? 5 : 6, speed:CFG.staffSpeed || (CFG.selfServe ? 92 : 66), act:0, task:null, think:0 };
 }
 const workerSpeed = w => w.speed * lv('wspeed');
 function updateServer(w, dt){
@@ -1160,12 +1431,14 @@ function updateWorkers(dt){
   for (const w of workers) {
     if (w.role === 'serveur') { updateServer(w, dt); continue; }
     w.think -= dt;
-    if (!w.task || w.think <= 0) { w.task = w.role === 'mitron' ? mitronThink(w) : boulangerThink(w); w.think = 1.2; }
+    if (!w.task || w.think <= 0) { w.task = w.role === 'mitron' ? (CFG.resto && restoCommis(w)) || mitronThink(w) : CFG.resto ? restoThink(w) : boulangerThink(w); w.think = 1.2; }
     const t = w.task;
     let tx, ty;
     if (t.type === 'vit') { if (t.p) { const z = gzone(t.p); tx = z.x + (w.idx || 0) * 14 - 7; ty = z.y; } else { tx = 150; ty = 408; } }
     else if (t.type === 'drop' || t.type === 'take') { tx = t.o.zone.x + (w.role === 'mitron' ? -8 : 8); ty = t.o.zone.y + 4; }
     else if (t.type === 'res') { tx = FLOUR_Z.x + 12; ty = FLOUR_Z.y + 8; }
+    else if (t.type === 'serve') { const st = SEATS[t.c.seat] || w; tx = st.x; ty = st.y - 20; }
+    else if (t.type === 'trash') { tx = TRASH_Z.x; ty = TRASH_Z.y + 14; }
     else if (w.role === 'mitron') { tx = 98; ty = 250; } else { tx = 200; ty = 360; }
     // réserve fermée : on passe par la porte du milieu
     if (CFG.reserveWall && (w.y < WALL_Y) !== (ty < WALL_Y)) {
@@ -1180,6 +1453,8 @@ function updateWorkers(dt){
         else if (t.type === 'drop') ok = actOvenDrop(w, t.o);
         else if (t.type === 'take') ok = (!t.max || (t.n = (t.n || 0) + 1) <= t.max) && actOvenTake(w, t.o);
         else if (t.type === 'res') ok = actReserve(w);
+        else if (t.type === 'serve') ok = deliver(w, t.c);
+        else if (t.type === 'trash') { ok = w.stack.length > 0; w.stack.pop(); }
         if (ok) w.act = .2 / lv('wspeed'); else w.think = 0;
       }
     }
@@ -1199,7 +1474,7 @@ function updatePlayer(dt){
   const L = Math.hypot(vx, vy); if (L > 1) { vx /= L; vy /= L; }
   const py0 = player.y;
   player.x = Math.max(18, Math.min(342, player.x + vx * player.speed * dt));
-  player.y = Math.max(84, Math.min(CFG.selfServe ? 612 : 420, player.y + vy * player.speed * dt));
+  player.y = Math.max(84, Math.min(CFG.selfServe || CFG.resto ? 612 : 420, player.y + vy * player.speed * dt));
   // mur de la réserve : on ne passe que par la porte
   if (CFG.reserveWall && (py0 < WALL_Y) !== (player.y < WALL_Y) && (player.x < 164 || player.x > 196)) player.y = py0;
   if (L > .05) player.walk = (player.walk || 0) + dt;
@@ -1222,9 +1497,10 @@ function updatePlayer(dt){
     if (near(player, FLOUR_Z)) did = actReserve(player);
     for (const o of OVENS) if (unlocked(o) && near(player, o.zone)) did = actOvenDrop(player, o) || actOvenTake(player, o) || did;
     if (CFG.selfServe) { for (const p of products()) if (near(player, gzone(p))) did = actVitrine(player, p) || did; }
-    else if (near(player, VIT_Z)) did = actVitrine(player) || did;
+    else if (!CFG.resto && near(player, VIT_Z)) did = actVitrine(player) || did;
     if (did) { player.act = .11; tick(640); }
   }
+  if (CFG.resto) restoPlayer(dt);
   if (S.cash > 0 && near(player, CASH_Z)) {
     float(player.x, player.y - 40, '+' + S.cash + ' €', '#8a6410');
     S.money += S.cash; S.cash = 0; sfx.register();
@@ -1258,6 +1534,7 @@ function updateWorld(dt){
     reserveT += dt;
     if (reserveT >= (has('mitron') ? .8 : 1.2)) { reserveT = 0; S.reserve++; }
   }
+  updateCart(dt);
   updateFloats(dt);
   for (const f of flakes) { f.y += f.v * dt; f.x += Math.sin(tclock + f.v) * 4 * dt; if (f.y > 720) { f.y = 632; f.x = Math.random() * 360; } }
 }
@@ -1267,18 +1544,19 @@ function hint(){
   if (!isOpen()) return ['Le local est poussiéreux : rénove-le pour ouvrir', UPG[0]];
   if (S.cash > 0) return ['Ramasse l\'argent près de la caisse', CASH_Z];
   if (queue.length && !manned()) return ['Un client attend : va à la caisse', CAISSE_Z];
+  if (CFG.resto) { const r = restoHint(); if (r) return r; }
   const st = player.stack, ovs = OVENS.filter(unlocked);
   const sand = OVENS.find(o => o.kind === 'sand');
   if (st.includes(sand.input) && unlocked(sand) && S.ov[sand.id].in === 0 && S.vit[sand.prod] < 3)
     return [CFG.text.sandTo, sand.zone];
-  if (st.some(isGood)) return [CFG.text.toVit || 'Pose tes produits dans la vitrine', CFG.selfServe ? gzone(st.find(isGood)) : VIT_Z];
+  if (!CFG.resto && st.some(isGood)) return [CFG.text.toVit || 'Pose tes produits dans la vitrine', CFG.selfServe ? gzone(st.find(isGood)) : VIT_Z];
   if (CFG.selfServe) { const empty = products().find(p => S.vit[p] === 0); if (empty && !workers.some(w => w.role === 'boulanger')) {
     const o = OVENS.find(o => o.prod === empty && o.kind === 'shelf'); if (o && S.ov[o.id].out > 0) return ['Le rayon ' + PRODUCTS[empty].name.toLowerCase() + ' est vide : va en réserve', o.zone]; } }
   const freeOven = ovs.filter(o => isOven(o) && S.ov[o.id].in < OV_IN_CAP).sort((a, b) => stockOf(a) - stockOf(b))[0];
   if (st.includes(RAW) && freeOven) return [CFG.text.putRaw, freeOven.zone];
   if (st.length >= player.cap) return ['Mains pleines : passe à la poubelle', TRASH_Z];
   const ready = ovs.find(o => S.ov[o.id].out > 0);
-  if (ready) return [isOven(ready) ? 'Sors les produits du four' : ready.kind === 'shelf' ? 'Prends les ' + PRODUCTS[ready.prod].plural + ' en réserve' : 'Récupère les ' + PRODUCTS[ready.prod].plural, ready.zone];
+  if (ready) return [isOven(ready) ? (CFG.resto ? 'Prends les plats prêts' : 'Sors les produits du four') : ready.kind === 'shelf' ? 'Prends les ' + PRODUCTS[ready.prod].plural + ' en réserve' : 'Récupère les ' + PRODUCTS[ready.prod].plural, ready.zone];
   const pads = visiblePads();
   if (S.dirty.length >= 3 && !has('serveur')) return [CFG.luxe ? 'Les cabines débordent : engage une hôtesse' : 'Les tables sont sales : engage un serveur', UPG.find(u => u.id === 'serveur')];
   if (CFG.thief && !has('vigile') && S.sold > 15 && has('apprenti')) return ['Beaucoup de vols : engage un agent de sécurité', UPG.find(u => u.id === 'vigile')];
@@ -1385,6 +1663,22 @@ function drawItem(t, x, y, s = 1){
   } else if (t === 'coffret') {
     rr(-8, -6, 16, 13, 2, '#f2a7bd', '#a8506e', 1); ctx.fillStyle = '#ffffff'; ctx.fillRect(-1.2, -6, 2.4, 13); ctx.fillRect(-8, -1, 16, 2.4);
     circle(-2.5, -7, 2, null, '#ffffff', 1.2); circle(2.5, -7, 2, null, '#ffffff', 1.2);
+  } else if (t === 'frais') {
+    circle(-4, -5, 3.2, '#d2442f', '#8a2a1e', .8); circle(1, -6.5, 3, '#4f9a3c', '#2f6a2a', .8); circle(5, -4.5, 2.8, '#f2b632', '#a8781a', .8);
+    rr(-8.5, -3, 17, 10, 2, '#c99a5e', '#7a5a33'); ctx.fillStyle = '#a97a44'; ctx.fillRect(-8, 1, 16, 1.4);
+  } else if (t === 'veloute' || t === 'stjacques' || t === 'boeuf' || t === 'truffe') {
+    circle(0, 0, 8.5, '#f8fafb', t === 'truffe' ? '#d4af37' : '#9aa3a8', t === 'truffe' ? 1.4 : 1);
+    if (t === 'veloute') { circle(0, 0, 5.5, '#e8902f', '#b86a1e', .8); circle(1.5, -1, 1.5, '#fff3c4'); ctx.fillStyle = '#4f9a3c'; ctx.fillRect(-2.5, 1.5, 1.6, 1.6); }
+    else if (t === 'stjacques') { [[-3, -1.5], [3, -1.5], [0, 3]].forEach(([a, b]) => circle(a, b, 2.5, '#f6ead2', '#b39a74', .8)); ctx.fillStyle = '#6fae4a'; [[0, -3.5], [-3.5, 2.5], [3.5, 2.5]].forEach(([a, b]) => ctx.fillRect(a - .7, b - .7, 1.4, 1.4)); }
+    else {
+      ctx.beginPath(); ctx.ellipse(-.5, -.5, 5.2, 3.8, -.3, 0, 7); ctx.fillStyle = '#7a3b22'; ctx.fill(); ctx.strokeStyle = '#4a2010'; ctx.lineWidth = .8; ctx.stroke();
+      circle(5, 3.5, 1.6, '#4f9a3c'); circle(-5, 3.5, 1.6, '#e8902f');
+      if (t === 'truffe') { ctx.fillStyle = '#1f1a17'; [[-2, -1.5], [1, -2], [.5, .8], [-1.5, 1]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b, .9, 0, 7); ctx.fill(); }); }
+    }
+  } else if (t === 'souffle') {
+    ctx.beginPath(); ctx.ellipse(0, -2, 6.5, 5, 0, Math.PI, 0); ctx.fillStyle = '#6b3a1f'; ctx.fill(); ctx.strokeStyle = '#3f2210'; ctx.lineWidth = .8; ctx.stroke();
+    rr(-6, -2, 12, 8, 2, '#ffffff', '#9aa3a8', 1);
+    ctx.fillStyle = '#fff'; [[-2, -4.5], [1.5, -5], [0, -3]].forEach(([a, b]) => ctx.fillRect(a, b, 1, 1));
   } else if (t === 'macaron') {
     [['#f2a7bd', -4.5, 1], ['#a8d48f', 4.5, 1], ['#f5d36b', 0, -4]].forEach(([col, dx, dy]) => {
       rr(dx - 4.5, dy - 3, 9, 6, 3, col, '#8a5523', 1); ctx.fillStyle = '#fff6e8'; ctx.fillRect(dx - 4, dy - .4, 8, 1);
@@ -1422,7 +1716,7 @@ function drawRoom(){
   ctx.fillStyle = '#c9b8a2'; ctx.beginPath(); ctx.moveTo(158, 640); ctx.lineTo(202, 640); ctx.lineTo(206, 690); ctx.lineTo(360, 690); ctx.lineTo(360, 708);
   ctx.lineTo(0, 708); ctx.lineTo(0, 690); ctx.lineTo(154, 690); ctx.closePath(); ctx.fill();
   pine(26, 676, .9); pine(70, 690, .7); pine(300, 680, .85); pine(338, 692, .7);
-  if (CFG.selfServe) drawBeauteFloor(); else {
+  if (CFG.selfServe) drawBeauteFloor(); else if (CFG.resto) drawRestoFloor(); else {
   // fournil : dalles de pierre
   ctx.save(); ctx.beginPath(); ctx.rect(0, 70, 360, 360); ctx.clip();
   const th = CFG.theme, kc = reno ? th.kitchenReno : th.kitchen;
@@ -1495,6 +1789,7 @@ function drawRoom(){
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(sx0 + 15, 13); ctx.lineTo(sx0 + 12.5, 17.5); ctx.lineTo(sx0 + 17.5, 17.5); ctx.fill();
   text(label, 180 + 9, 18.5, fs);
   if (CFG.selfServe) { drawBeauteFurniture(); return; }
+  if (CFG.resto) { drawRestoFurniture(); return; }
   // comptoir + vitrine
   rr(0, 428, 264, 36, 0, '#7a4b2a'); ctx.fillStyle = '#986238'; ctx.fillRect(0, 428, 264, 7);
   ctx.fillStyle = 'rgba(214,236,238,.55)'; ctx.fillRect(4, 437, 256, 24);
@@ -1625,6 +1920,7 @@ function drawOven(o){
     ctx.setLineDash([4, 4]); rr(-30, -26, 60, 52, 10, 'rgba(51,36,26,.06)', 'rgba(51,36,26,.35)', 1.5); ctx.setLineDash([]);
     ctx.restore(); return;
   }
+  if (CFG.resto) drawStoveBody(st, p); else {
   // four en pierre
   rr(-31, -27, 62, 54, 12, '#8f877b', '#4f4840', 2);
   [[-22, -18, 14, 9], [-6, -20, 16, 8], [12, -17, 13, 9], [-25, -5, 9, 10], [17, -4, 10, 11], [-24, 9, 8, 10], [18, 10, 9, 9]]
@@ -1635,6 +1931,7 @@ function drawOven(o){
     const g = .45 + .25 * Math.sin(tclock * 8);
     ctx.fillStyle = 'rgba(255,150,60,' + g + ')'; ctx.fill();
     rr(-16, 24, 32 * (st.prog / p.time), 3, 1.5, '#f2b632');
+  }
   }
   ctx.restore();
   const lx = o.rot ? o.x + 4 : o.x, ly = o.rot ? o.y - 44 : o.y - 42;
@@ -1720,16 +2017,35 @@ function drawPads(){
 }
 
 function drawPerson(e, opt){
-  const bob = e.walk ? Math.sin(e.walk * 14) * 1.2 : 0;
+  const bob = e.walk ? Math.sin(e.walk * 14) * 1.2 : 0, x = e.x, y = e.y + bob;
   ctx.beginPath(); ctx.ellipse(e.x, e.y + 2, 10, 4, 0, 0, 7); ctx.fillStyle = 'rgba(40,25,15,.22)'; ctx.fill();
-  circle(e.x, e.y - 8 + bob, 9.5, opt.body, '#33241a', 1.4);
-  if (opt.apron) rr(e.x - 5.5, e.y - 12 + bob, 11, 12, 3, opt.apron, '#33241a', 1);
-  if (opt.scarf) rr(e.x - 7, e.y - 16 + bob, 14, 4, 2, opt.scarf);
-  circle(e.x, e.y - 21 + bob, 7, opt.face || '#f1c9a5', '#33241a', 1.4);
+  if (opt.tails) { ctx.fillStyle = opt.tails; ctx.beginPath(); ctx.moveTo(x - 7, y - 5); ctx.lineTo(x - 3, y + 6); ctx.lineTo(x, y - 1); ctx.lineTo(x + 3, y + 6); ctx.lineTo(x + 7, y - 5); ctx.fill(); }
+  circle(x, y - 8, 9.5, opt.body, '#33241a', 1.4);
+  if (opt.stripes) { ctx.save(); ctx.beginPath(); ctx.arc(x, y - 8, 8.6, 0, 7); ctx.clip(); ctx.fillStyle = opt.stripes; for (let k = -17; k < 2; k += 4) ctx.fillRect(x - 10, y + k, 20, 1.8); ctx.restore(); }
+  if (opt.apron) rr(x - 5.5, y - 12, 11, 12, 3, opt.apron, '#33241a', 1);
+  if (opt.flowers) { ctx.fillStyle = '#d2442f'; [[-2.5, -9], [2, -6], [-1.5, -3.5], [2.8, -10]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(x + a, y + b, 1, 0, 7); ctx.fill(); }); }
+  if (opt.shirt) { ctx.fillStyle = opt.shirt; ctx.beginPath(); ctx.moveTo(x - 3.5, y - 16.8); ctx.lineTo(x + 3.5, y - 16.8); ctx.lineTo(x, y - 9); ctx.closePath(); ctx.fill(); }
+  if (opt.buttons) { ctx.fillStyle = opt.buttons; [-13, -9.5, -6].forEach(dy => { ctx.fillRect(x - 3.6, y + dy, 1.6, 1.6); ctx.fillRect(x + 2, y + dy, 1.6, 1.6); }); }
+  if (opt.bow) { ctx.fillStyle = opt.bow; ctx.beginPath(); ctx.moveTo(x, y - 15); ctx.lineTo(x - 4, y - 17); ctx.lineTo(x - 4, y - 13); ctx.closePath(); ctx.moveTo(x, y - 15); ctx.lineTo(x + 4, y - 17); ctx.lineTo(x + 4, y - 13); ctx.closePath(); ctx.fill(); }
+  if (opt.neck) { ctx.fillStyle = opt.neck; ctx.beginPath(); ctx.moveTo(x - 5, y - 16.5); ctx.lineTo(x + 5, y - 16.5); ctx.lineTo(x, y - 10.5); ctx.closePath(); ctx.fill(); }
+  if (opt.scarf) rr(x - 7, y - 16, 14, 4, 2, opt.scarf);
+  if (opt.hair && opt.hairStyle === 'long') rr(x - 8, y - 27, 16, 16, 6, opt.hair, '#33241a', 1);
+  circle(x, y - 21, 7, opt.face || '#f1c9a5', '#33241a', 1.4);
+  if (opt.hair) {
+    ctx.beginPath(); ctx.arc(x, y - 21, 7.2, Math.PI, 0); ctx.quadraticCurveTo(x + 1, y - 25.5, x - 7.2, y - 21.5); ctx.closePath();
+    ctx.fillStyle = opt.hair; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1; ctx.stroke();
+    if (opt.hairStyle === 'bun') circle(x, y - 29.5, 3.6, opt.hair, '#33241a', 1);
+    if (opt.hairStyle === 'pony') circle(x + 7.5, y - 23, 3, opt.hair, '#33241a', 1);
+    if (opt.hairStyle === 'slick') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(x - 2, y - 27); ctx.quadraticCurveTo(x + 2, y - 25, x + 5, y - 25.5); ctx.stroke(); }
+  }
+  if (opt.mustache) { ctx.fillStyle = '#2a1a12'; ctx.beginPath(); ctx.ellipse(x - 2.2, y - 18.3, 2.3, 1.1, .3, 0, 7); ctx.ellipse(x + 2.2, y - 18.3, 2.3, 1.1, -.3, 0, 7); ctx.fill(); }
+  if (opt.glasses) rr(x - 6, y - 23, 12, 3.5, 1.5, '#111');
+  if (opt.bandana) { ctx.beginPath(); ctx.arc(x, y - 21.5, 7.5, Math.PI, 0); ctx.closePath(); ctx.fillStyle = opt.bandana; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1; ctx.stroke(); circle(x + 7, y - 22, 2, opt.bandana, '#33241a', .8); ctx.fillStyle = '#fff'; [[-3, -25], [1.5, -26], [4, -23.5]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(x + a, y + b, .9, 0, 7); ctx.fill(); }); }
+  if (opt.tallToque) { rr(x - 6, y - 39, 12, 13, 2, '#fff', '#33241a', 1); circle(x - 4, y - 40, 4, '#fff', '#33241a', 1); circle(x + 4, y - 40, 4, '#fff', '#33241a', 1); circle(x, y - 42, 4.5, '#fff', '#33241a', 1); rr(x - 5, y - 38, 10, 9, 1, '#fff'); rr(x - 6.5, y - 29, 13, 4, 1, '#fff', '#33241a', 1); }
   if (opt.toque) { circle(e.x - 4, e.y - 30 + bob, 4.5, '#fff', '#33241a', 1); circle(e.x + 4, e.y - 30 + bob, 4.5, '#fff', '#33241a', 1); circle(e.x, e.y - 33 + bob, 5, '#fff', '#33241a', 1); rr(e.x - 6, e.y - 29 + bob, 12, 4, 1, '#fff'); }
   else if (opt.cap) { ctx.beginPath(); ctx.arc(e.x, e.y - 23 + bob, 7, Math.PI, 0); ctx.fillStyle = opt.cap; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1.2; ctx.stroke(); rr(e.x - 1, e.y - 25 + bob, 10, 3, 1.5, opt.cap); }
   else if (opt.bonnet) { ctx.beginPath(); ctx.arc(e.x, e.y - 23 + bob, 7.4, Math.PI, 0); ctx.fillStyle = opt.bonnet; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1.2; ctx.stroke(); circle(e.x, e.y - 31 + bob, 2.6, '#fff', '#33241a', 1); }
-  if (e.stack) e.stack.forEach((t, i) => drawItem(t, e.x, e.y - 44 - i * 5.5 + bob - (opt.toque ? 4 : 0), .62));
+  if (e.stack) e.stack.forEach((t, i) => drawItem(t, e.x, e.y - 44 - i * 5.5 + bob - (opt.toque ? 4 : opt.tallToque ? 12 : 0), .62));
 }
 
 function bubble(x, y, draw, warn){
@@ -1756,10 +2072,17 @@ function drawCustomer(c){
     bubble(c.x, c.y - 48, () => { rr(c.x - 5, c.y - 55, 10, 13, 1.5, '#ffffff', '#33241a', 1); ctx.fillStyle = '#7d8590'; [-51, -48, -45].forEach(y => ctx.fillRect(c.x - 3, c.y + y, 6, 1.2)); });
     return;
   }
-  const mad = (c.state === 'shop' && c.pat < 18) || (c.state === 'queue' && c.wait > 20) || (c.state === 'leave' && c.mood === 'angry');
-  drawPerson(c, { body:c.coat, bonnet:c.hat, scarf:c.hat, face:mad ? '#f0a38c' : null });
+  const mad = (c.state === 'shop' && c.pat < 18 && !CFG.resto) || (c.state === 'order' && c.pat < 15) || (c.state === 'queue' && c.wait > 20) || (c.state === 'leave' && c.mood === 'angry');
+  drawPerson(c, { body:c.coat, cap:c.critic ? '#2c3036' : null, bonnet:c.hat, scarf:c.critic ? null : c.hat, face:mad ? '#f0a38c' : null });
   const by = c.y - 48;
   if (mad && c.y < 640) anger(c.x + 12, c.y - 30);
+  if (c.critic) { rr(c.x + 7, c.y - 13, 7, 9, 1.2, '#f4ead2', '#33241a', 1); ctx.fillStyle = '#7d8590'; ctx.fillRect(c.x + 8.5, c.y - 10, 4, .9); ctx.fillRect(c.x + 8.5, c.y - 8, 4, .9); }
+  if (CFG.resto && ['enter', 'shop', 'sit', 'order', 'eat'].includes(c.state)) {
+    if (c.state === 'order') bubble(c.x, by, () => drawItem(c.want, c.x, by - 1, .6), mad);
+    else if (c.state === 'shop') bubble(c.x, by, () => text('…', c.x, by - 1, 11, '#7d8590'));
+    else if (c.state === 'eat') { const st = SEATS[c.seat] || c, t = RESTO_TABLES[st.table] || c; drawItem(c.want, t.x + (st.side || 0) * 6, t.y - 1, .45); }
+    return;
+  }
   if (c.browse && c.state === 'shop') { bubble(c.x, by, () => text('?', c.x, by + .5, 12, '#7d8590')); return; }
   if (c.state === 'refused') { bubble(c.x, by, () => text('Non', c.x, by + .5, 9, '#c8433a'), true); return; }
   if (c.state === 'shop' || (c.state === 'enter' && c.y < 640)) {
@@ -1803,10 +2126,11 @@ function draw(){
   const ents = [];
   customers.forEach(c => { if (!c.hidden) ents.push({ y:c.y, f:() => drawCustomer(c) }); });
   workers.forEach(w => ents.push({ y:w.y, f:() => drawPerson(w,
-    w.role === 'mitron' ? { body:'#8a8f96', apron:'#fffaf0', toque:true }
+    CFG.resto ? (w.role === 'mitron' ? { body:'#ffffff', buttons:'#33241a', toque:true } : w.role === 'serveur' ? { body:'#5d8aa8', apron:'#e8eef2', cap:'#3f6b8f' } : { body:'#151515', shirt:'#ffffff', bow:'#151515', hair:'#2a1a12', hairStyle:'slick' })
+    : w.role === 'mitron' ? { body:'#8a8f96', apron:'#fffaf0', toque:true }
     : w.role === 'serveur' ? (CFG.beauty ? { body:'#1f1f1f', apron:'#f58bb0', cap:'#d36f9a' } : CFG.luxe ? { body:'#f4efe6', apron:'#1f1f1f', cap:'#1f1f1f' } : { body:'#2c3036', apron:'#fffaf0', cap:'#2c3036' })
     : CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#d4af37', cap:'#1f1f1f' } : { body:'#3f6b8f', apron:'#fffaf0', toque:true }) }));
-  if (has('apprenti')) { const a = LAYOUT.app; ents.push({ y:a.y, f:() => drawPerson(a, CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#f4efe6', cap:'#1f1f1f' } : { body:'#3f6b4f', apron:'#fffaf0', cap:'#c9762b' }) }); }
+  if (has('apprenti')) { const a = LAYOUT.app; ents.push({ y:a.y, f:() => drawPerson(a, CFG.resto ? { body:'#151515', shirt:'#ffffff', hair:'#7a4a2a', hairStyle:'bun' } : CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#f4efe6', cap:'#1f1f1f' } : { body:'#3f6b4f', apron:'#fffaf0', cap:'#c9762b' }) }); }
   if (has('patissier')) { const a = { x:185, y:228, walk:tclock * .4 }; ents.push({ y:a.y, f:() => drawPerson(a, CFG.luxe ? { body:'#7a5a8a', apron:'#f4efe6', cap:'#d4af37' } : { body:'#d36f9a', apron:'#fffaf0', toque:true }) }); }
   if (inspector) { const e = inspector; ents.push({ y:e.y, f:() => {
     drawPerson(e, { body:'#4a4f57', cap:'#2c3036' });
@@ -1815,7 +2139,8 @@ function draw(){
     text('URSSAF', e.x, e.y + 11, 6.5, '#2c3036');
   } }); }
   if ((CFG.luxe || CFG.thief) && has('vigile')) { const v = { x:216, y:606 }; ents.push({ y:v.y, f:() => { drawPerson(v, { body:'#151515', cap:'#151515' }); rr(v.x - 5, v.y - 23, 10, 3, 1.5, '#000'); } }); }
-  ents.push({ y:player.y, f:() => drawPerson(player, CFG.luxe ? { body:'#2b2b2b', apron:'#d4af37', toque:true } : { body:'#c9762b', apron:'#fffaf0', toque:true }) });
+  if (cart && CFG.resto) ents.push({ y:cart.y, f:drawCart });
+  ents.push({ y:player.y, f:() => drawPerson(player, playerLook()) });
   ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
   drawSnow();
   drawFlashes();
@@ -1838,7 +2163,7 @@ let lastMoney = -1, lastHint = '';
 const starsEl = document.getElementById('stars');
 let lastStars = '';
 const shopBtn = document.getElementById('shopBtn'), shopPanel = document.getElementById('shopPanel'), shopList = document.getElementById('shopList');
-const SHOP_ORDER = ['boulangerie', 'pizzeria', 'luxe', 'beaute'];
+const SHOP_ORDER = ['boulangerie', 'pizzeria', 'luxe', 'beaute', 'resto'];
 function renderShops(){
   shopList.innerHTML = SHOP_ORDER.filter(id => GAME.shops[id]).map(id => {
     const st = GAME.shops[id], pend = Math.floor(GAME.pending[id] || 0), here = id === SHOP_ID;
@@ -2053,8 +2378,70 @@ document.getElementById('lbStars').onclick = () => { lbTab = 'stars'; renderLb()
 document.getElementById('lbPseudo').onclick = askPseudo;
 document.getElementById('lbClose').onclick = () => { lbPanel.hidden = true; paused = false; last = performance.now(); };
 
+// ---------- Vestiaire : une tenue offerte à l'ouverture de chaque commerce, l'autre à acheter ----------
+const SKINS = [
+  { id:'boulanger',   shop:'boulangerie', name:'Boulanger',        price:0,     look:{ body:'#c9762b', apron:'#fffaf0', toque:true } },
+  { id:'boulangere',  shop:'boulangerie', name:'Boulangère',       price:500,   look:{ body:'#c9762b', apron:'#f6d6de', flowers:true, hair:'#7a4a2a', hairStyle:'long', bandana:'#c8433a' } },
+  { id:'pizzaiolo',   shop:'pizzeria',    name:'Pizzaïolo',        price:0,     look:{ body:'#ffffff', stripes:'#2c4a8a', neck:'#c8433a', hair:'#2a1a12', hairStyle:'short', mustache:true } },
+  { id:'mamma',       shop:'pizzeria',    name:'Mamma italienne',  price:1500,  look:{ body:'#2c2c2c', apron:'#ffffff', hair:'#a9a9a9', hairStyle:'bun' } },
+  { id:'costume',     shop:'luxe',        name:'Costume noir',     price:0,     look:{ body:'#1f1f1f', shirt:'#ffffff', bow:'#1f1f1f', hair:'#3a2a1f', hairStyle:'slick' } },
+  { id:'tailleur',    shop:'luxe',        name:'Tailleur chic',    price:4000,  look:{ body:'#efe4d2', shirt:'#1f1f1f', hair:'#e0b354', hairStyle:'long', glasses:true } },
+  { id:'conseillere', shop:'beaute',      name:'Conseillère',      price:0,     look:{ body:'#f58bb0', shirt:'#ffffff', hair:'#5a3424', hairStyle:'pony' } },
+  { id:'kpop',        shop:'beaute',      name:'Look K-pop',       price:8000,  look:{ body:'#ff6fb1', stripes:'#36c5f0', hair:'#c7b8ff', hairStyle:'long' } },
+  { id:'chef',        shop:'resto',       name:'Chef étoilé',      price:0,     look:{ body:'#ffffff', buttons:'#33241a', neck:'#2c4a8a', tallToque:true } },
+  { id:'maitre',      shop:'resto',       name:'Maître d\'hôtel',  price:15000, look:{ body:'#151515', shirt:'#ffffff', bow:'#151515', tails:'#151515', hair:'#2a1a12', hairStyle:'slick' } },
+];
+const shopReady = id => !!GAME.shops[id] && shopOpen(id);
+const skinOwned = s => shopReady(s.shop) && (!s.price || GAME.skins.owned.includes(s.id));
+const autoLook = () => (SKINS.find(k => k.shop === SHOP_ID && !k.price) || SKINS[0]).look;
+function playerLook(){
+  const s = SKINS.find(k => k.id === GAME.skins.cur);
+  return s && skinOwned(s) ? s.look : autoLook();
+}
+// tenue offerte du commerce qu'on vient d'ouvrir
+function newSkinToast(){
+  const s = SKINS.find(k => k.shop === SHOP_ID && !k.price);
+  if (s) setTimeout(() => toast('Nouvelle tenue au vestiaire : ' + s.name), 3200);
+}
+const skinPanel = document.getElementById('skinPanel'), skinList = document.getElementById('skinList');
+// petit portrait dessiné avec le même code que le personnage du jeu
+function skinPreview(look){
+  const c = document.createElement('canvas'), d = Math.min(window.devicePixelRatio || 1, 2);
+  c.width = 52 * d; c.height = 66 * d; c.style.cssText = 'width:52px;height:66px;flex:none';
+  const keep = ctx; ctx = c.getContext('2d'); ctx.setTransform(d * 1.3, 0, 0, d * 1.3, 0, 0);
+  try { drawPerson({ x:20, y:45 }, look); } finally { ctx = keep; }
+  return c;
+}
+function skinRow(look, title, sub, label, disabled, onClick){
+  const row = document.createElement('div'); row.className = 'upg';
+  const txt = document.createElement('div'); txt.className = 'txt';
+  const b = document.createElement('b'); b.textContent = title;
+  const s = document.createElement('small'); s.textContent = sub;
+  const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = label; btn.disabled = disabled;
+  if (onClick) btn.onclick = onClick;
+  txt.append(b, s); row.append(skinPreview(look), txt, btn);
+  return row;
+}
+function wear(id){ GAME.skins.cur = id; save(); renderSkins(); }
+function renderSkins(){
+  skinList.textContent = '';
+  const cur = SKINS.find(k => k.id === GAME.skins.cur && skinOwned(k));
+  skinList.append(skinRow(autoLook(), 'Automatique', 'la tenue offerte du commerce où tu es', cur ? 'Porter' : 'Portée', !cur, () => wear('auto')));
+  for (const s of SKINS) {
+    const where = SHOPS[s.shop].text.short;
+    if (!shopReady(s.shop)) { skinList.append(skinRow(s.look, s.name, 'S\'ouvre avec : ' + where, 'Bloquée', true)); continue; }
+    if (skinOwned(s)) { const on = cur === s; skinList.append(skinRow(s.look, s.name, where + (s.price ? ' · achetée' : ' · offerte'), on ? 'Portée' : 'Porter', on, () => wear(s.id))); continue; }
+    skinList.append(skinRow(s.look, s.name, where + ' · à acheter', fmtMoney(s.price), S.money < s.price, () => {
+      if (S.money < s.price || GAME.skins.owned.includes(s.id)) return;
+      S.money -= s.price; GAME.skins.owned.push(s.id); fanfare(); toast('Nouvelle tenue : ' + s.name + ' !'); wear(s.id);
+    }));
+  }
+}
+document.getElementById('skinBtn').onclick = () => { panel.hidden = true; skinPanel.hidden = false; renderSkins(); };
+document.getElementById('skinClose').onclick = () => { skinPanel.hidden = true; paused = false; last = performance.now(); };
+
 // ---------- Événements : l'influenceuse et les demandes de remboursement ----------
-let influT = rnd(360, 600), refundT = rnd(180, 300), boostT = 0, influCine = null, refundC = null, flashes = [], flashT = 0;
+let influT = rnd(360, 600), refundT = rnd(180, 300), criticT = rnd(180, 300), boostT = 0, influCine = null, refundC = null, flashes = [], flashT = 0;
 const NAMES = [['Martin', 0], ['Julie', 1], ['Kevin', 0], ['Sophie', 1], ['Lucas', 0], ['Chloé', 1], ['Nadia', 1], ['Hugo', 0], ['Inès', 1], ['Thomas', 0]];
 // excuses validées ensemble : [texte, légitime ?]
 const REFUNDS = {
@@ -2077,6 +2464,11 @@ const REFUNDS = {
     ['Le flacon était vide.', 1], ['Ce shampoing m\'a donné des boutons.', 1], ['Le rouge à lèvres était cassé dans la boîte.', 1],
     ['Ce mascara ne m\'a pas rajeunie de 10 ans.', 0], ['La crème hydratante… hydrate trop.', 0],
     ['Le masque coréen ne m\'a pas fait parler coréen.', 0], ['Ma lotion sent la lotion.', 0]],
+  resto:[
+    ['Mon velouté était froid.', 1], ['Mon filet de bœuf était trop cuit, je l\'avais demandé saignant.', 1],
+    ['Mon soufflé était retombé avant d\'arriver à table.', 1], ['L\'assiette était immense pour une si petite portion.', 0],
+    ['Il n\'y avait pas de ketchup pour mon filet de bœuf.', 0], ['Le serveur ne m\'a pas appelé « Votre Altesse ».', 0],
+    ['La truffe ne ressemblait pas à un champignon.', 0]],
 };
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const starTxt = d => (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1).replace('.', ',') + ' ★';
@@ -2088,6 +2480,7 @@ function updateEvents(dt){
   influT -= dt; refundT -= dt;
   if (influT <= 0) { influT = rnd(360, 600); if (!customers.some(c => c.influ)) spawnInflu(); }
   else if (refundT <= 0) { refundT = rnd(180, 300); spawnRefund(); }
+  if (CFG.resto && (S.michelin || 0) < 3 && (criticT -= dt) <= 0) { criticT = rnd(240, 420); spawnCritic(); }
 }
 
 // --- l'influenceuse : arrivée filmée, fans autour d'elle, 30 secondes pour la servir ---
@@ -2098,6 +2491,7 @@ function spawnInflu(){
     influ:true, influT:30, coat:'#f58bb0', hat:'#ffffff', mood:null, bell:true,
     path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y]] };
   if (CFG.selfServe) { c.list = [want]; c.idx = 0; c.basket = []; c.ox = 0; c.pat = 30; c.path.push([180, 590]); }
+  else if (CFG.resto) c.path.push([180, 596]);
   else {
     const used = new Set(customers.filter(o => o.slot != null).map(o => o.slot));
     c.slot = VSLOTS.map((_, i) => i).find(i => !used.has(i)); if (c.slot == null) c.slot = 2;
@@ -2141,6 +2535,7 @@ function influResult(c, ok){
 }
 function influTick(c, dt){
   if (c.done || c.state === 'leave') return false;
+  if (CFG.resto && c.state !== 'order') return false;   // au restaurant, le chrono part quand elle est assise
   c.influT -= dt;
   if (c.influT > 0) return false;
   influResult(c, false);
@@ -2166,7 +2561,7 @@ function drawFlashes(){
   }
 }
 function drawInflu(c){
-  const look = { boulangerie:{ cap:'#c8433a' }, pizzeria:{ cap:'#3f6b4f' }, luxe:{ cap:'#1f1f1f' }, beaute:{ bonnet:'#f2a7bd' } }[SHOP_ID];
+  const look = { boulangerie:{ cap:'#c8433a' }, pizzeria:{ cap:'#3f6b4f' }, luxe:{ cap:'#1f1f1f' }, beaute:{ bonnet:'#f2a7bd' }, resto:{ cap:'#7a1f2b' } }[SHOP_ID];
   if (SHOP_ID === 'beaute') circle(c.x, c.y - 21, 13, null, 'rgba(255,255,255,.9)', 3);
   drawPerson(c, Object.assign({ body:'#f58bb0', apron:'#ffffff' }, look));
   rr(c.x - 6, c.y - 23, 12, 3.5, 1.5, '#111');
@@ -2230,6 +2625,7 @@ document.getElementById('renameBtn').onclick = askName;
 function start(data){
   load(data);
   if (!S.name) askName(); else if (!GAME.player.name) askPseudo();
+  if (wardrobeNews) setTimeout(() => toast('Nouveau : le vestiaire ! Change de tenue dans le Menu'), 1500);
   try { window.claude?.hot?.snapshot?.(snapshot); } catch(e){}
   requestAnimationFrame(t => { last = t; frame(t); });
 }
