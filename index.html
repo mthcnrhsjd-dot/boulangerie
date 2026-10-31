@@ -561,8 +561,8 @@ function enterShop(id, quiet){
   SEATS = CFG.seats || DEFAULT_SEATS;
   player.stack = (S.stack || []).filter(t => t === RAW || CFG.products[t]).slice(0, 12);
   player.x = 90; player.y = 372;
-  workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5; cart = null; criticT = rnd(180, 300); bus = null; busT = rnd(200, 320);
-  influT = rnd(360, 600); refundT = rnd(180, 300); boostT = 0; influCine = null; refundC = null; flashes = []; refundPanel.hidden = true;
+  workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5; cart = null; bus = null;
+  boostT = 0; influCine = null; refundC = null; flashes = []; refundPanel.hidden = true;
   applyUpgrades(); lastStars = '';
   if (actx) Music.play(id);
   const got = Math.floor(GAME.pending[id] || 0);
@@ -588,7 +588,7 @@ function updatePassive(dt){
 
 // ---------- Sauvegarde ----------
 const KEY = 'boulangerie-montagne-v3';
-function snapshot(){ S.stack = player.stack.slice(); return JSON.parse(JSON.stringify(GAME)); }
+function snapshot(){ S.stack = player.stack.slice(); GAME.ev = { influ:influT, refund:refundT, critic:criticT, bus:busT }; return JSON.parse(JSON.stringify(GAME)); }
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(snapshot())); } catch(e){} }
 function mergeShop(id, d){
   const cfg = SHOPS[id], st = freshState(cfg);
@@ -629,6 +629,8 @@ function load(data){
   if (!GAME.player || !GAME.player.id) GAME.player = { id:randId(), name:(GAME.player && GAME.player.name) || '' };
   if (GAME.earned == null) GAME.earned = estimateEarned();
   if (!GAME.skins || !Array.isArray(GAME.skins.owned)) { GAME.skins = { cur:'auto', owned:[] }; wardrobeNews = !!d; }
+  const ev = (d && d.ev) || {}, num = (v, def) => Number.isFinite(v) ? Math.max(0, v) : def;
+  influT = num(ev.influ, influT); refundT = num(ev.refund, refundT); criticT = num(ev.critic, criticT); busT = num(ev.bus, busT);
   if (!GAME.shops[GAME.current]) GAME.current = 'boulangerie';
   enterShop(GAME.current, true);
 }
@@ -2792,7 +2794,7 @@ document.getElementById('skinBtn').onclick = () => { panel.hidden = true; skinPa
 document.getElementById('skinClose').onclick = () => { skinPanel.hidden = true; paused = false; last = performance.now(); };
 
 // ---------- Événements : l'influenceuse et les demandes de remboursement ----------
-let influT = rnd(360, 600), refundT = rnd(180, 300), criticT = rnd(180, 300), busT = rnd(200, 320), boostT = 0, influCine = null, refundC = null, flashes = [], flashT = 0;
+let influT = 180, refundT = rnd(120, 240), criticT = rnd(180, 300), busT = rnd(200, 320), boostT = 0, influCine = null, refundC = null, flashes = [], flashT = 0;
 const NAMES = [['Martin', 0], ['Julie', 1], ['Kevin', 0], ['Sophie', 1], ['Lucas', 0], ['Chloé', 1], ['Nadia', 1], ['Hugo', 0], ['Inès', 1], ['Thomas', 0]];
 // excuses validées ensemble : [texte, légitime ?]
 const REFUNDS = {
@@ -2833,8 +2835,8 @@ function updateEvents(dt){
   updateFlashes(dt);
   if (!isOpen() || !has('apprenti') || inspector || refundC || influCine) return;
   influT -= dt; refundT -= dt;
-  if (influT <= 0) { influT = rnd(360, 600); if (!customers.some(c => c.influ)) spawnInflu(); }
-  else if (refundT <= 0) { refundT = rnd(180, 300); spawnRefund(); }
+  if (influT <= 0) { influT = rnd(240, 420); if (!customers.some(c => c.influ)) spawnInflu(); }
+  else if (refundT <= 0) { refundT = rnd(120, 240); spawnRefund(); }
   if (CFG.resto && (S.michelin || 0) < 3 && (criticT -= dt) <= 0) { criticT = rnd(240, 420); spawnCritic(); }
   if (CFG.hotel && !bus && (busT -= dt) <= 0) { busT = rnd(300, 480); spawnBus(); }
 }
