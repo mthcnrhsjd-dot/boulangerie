@@ -243,6 +243,11 @@ function makeOvens(raw, p, k = 'four'){
 // restaurant : 6 tables de 2 couverts, 2 ouvertes au départ, les autres à acheter
 const RESTO_TABLES = [{x:55,y:390},{x:145,y:390},{x:235,y:390},{x:55,y:500},{x:145,y:500},{x:235,y:500}]
   .map((t, i) => Object.assign(t, { need:[null, null, 'salle3', 'salle2', 'salle2', 'salle3'][i] }));
+// hôtel : 6 chambres de part et d'autre du couloir (les plus proches du hall d'abord), 4 tables de petit-déjeuner
+const HOTEL_ROOMS = [{x:72,y:288},{x:288,y:288},{x:72,y:203},{x:288,y:203},{x:72,y:118},{x:288,y:118}]
+  .map((r, i) => Object.assign(r, { need:[null, null, 'ch2', 'ch2', 'ch3', 'ch3'][i] }));
+const HOTEL_TABLES = [{x:60,y:470},{x:150,y:470},{x:60,y:560},{x:150,y:560}]
+  .map((t, i) => Object.assign(t, { need:['petitdej', 'petitdej', 'salle', 'salle'][i] }));
 const SHOPS = {
   boulangerie: {
     products:PRODUCTS_B, order:['baguette','croissant','pac','sandwich','macaron'],
@@ -399,7 +404,7 @@ const SHOPS = {
       { id:'sandwich',       kind:'sand', input:'boeuf', prod:'truffe',    x:332, y:212, rot:Math.PI/2, unlock:'sandwich',  zone:{x:292,y:212,w:44,h:58} },
       { id:'patisserie',     kind:'pat',  input:null,    prod:'souffle',   x:185, y:248, rot:0,         unlock:'patissier', zone:{x:185,y:282,w:64,h:28} },
     ],
-    raw:'frais', resto:true, mirror:false, locked:true, patSelf:true, staffSpeed:92, payTime:.8,
+    raw:'frais', resto:true, mirror:false, locked:true, patSelf:true, staffSpeed:92, payTime:.8, next:'hotel',
     passiveMul:25, passiveCap:15000, priceMul:30,
     arrive:'Tu as racheté le restaurant. Rénove la salle pour ouvrir !',
     start:{ bought:['fournisseur'], reserve:12, vit:{}, oven:0 },
@@ -421,12 +426,56 @@ const SHOPS = {
       { id:'chariot',    name:'Chariot de desserts',  sub:'pourboires',            price:10000, x:320, y:420, after:['boulanger2'],         msg:'Le chariot de desserts passe entre les tables : pourboires !' },
       { id:'enseigne',   name:'Article dans le journal', sub:'plus de clients',    price:14000, x:115, y:215, after:['chariot','salle3'],   msg:'L\'article fait venir toute la vallée' },
       { id:'renovation', name:'Lustres en cristal',   sub:'la touche finale',      price:30000, x:180, y:330, after:['enseigne'],           msg:'Lustres en cristal : ton restaurant est le plus chic des Alpes !' },
+      { id:'local',      name:'Racheter l\'hôtel-chalet', sub:'chambres et petit-déj', price:100000, x:180, y:330, after:['renovation'], msg:'' },
     ],
     theme:{ kitchen:['#eef0f1','#d5dadd'], kitchenReno:['#eef0f1','#d5dadd'], shop:'planks', shopCol:['#6a2430','#5a1e28'], shopReno:['#7a1f2b','#6a1a25'], signLit:'#d4af37', rug:'#7a1f2b' },
     text:{ defaultName:'Restaurant', ask:'Comment s\'appelle ton restaurant ?', go:'Ouvrir mon restaurant',
       ideas:['La Table des Cimes','Le Grand Sommet','L\'Étoile des Neiges'], source:'Produits frais', putRaw:'Mets les produits frais sur un fourneau',
       take:'Prends les produits frais livrés par le primeur', wait:'Le primeur arrive avec les produits frais…', sandTo:'Apporte des filets de bœuf à la table de dressage',
       sand:'Dressage', pat:'Soufflés', final:'Ton restaurant est le plus chic des Alpes !', short:'Restaurant' },
+  },
+  hotel: {
+    products:{
+      chambre:  { name:'Chambre', plural:'chambres',              price:450, time:1,   need:1 },
+      linge:    { name:'Linge propre', plural:'piles de linge',   price:0,   time:2.4, need:1 },
+      cafe:     { name:'Café', plural:'cafés',                    price:60,  time:2.0, need:1 },
+      croissant:{ name:'Croissant', plural:'croissants',          price:90,  time:2.6, need:1 },
+      jus:      { name:'Jus d\'orange', plural:'jus d\'orange',  price:75,  time:2.2, need:1 },
+    },
+    order:['chambre','linge','cafe','croissant','jus'],
+    // le hall : lingerie, puis le buffet du petit-déjeuner
+    ovens:[
+      { id:'linge',     kind:'pat', input:null, prod:'linge',     x:44,  y:372, rot:0, unlock:null,       zone:{x:44, y:405,w:56,h:28} },
+      { id:'cafe',      kind:'pat', input:null, prod:'cafe',      x:130, y:372, rot:0, unlock:'petitdej', zone:{x:130,y:405,w:50,h:28}, brk:true },
+      { id:'croissant', kind:'pat', input:null, prod:'croissant', x:195, y:372, rot:0, unlock:'petitdej', zone:{x:195,y:405,w:50,h:28}, brk:true },
+      { id:'jus',       kind:'pat', input:null, prod:'jus',       x:260, y:372, rot:0, unlock:'jus',      zone:{x:260,y:405,w:50,h:28}, brk:true },
+    ],
+    raw:null, noRaw:true, hotel:true, mirror:false, locked:true, patSelf:true, staffSpeed:92, payTime:1,
+    passiveMul:40, passiveCap:25000, priceMul:60,
+    arrive:'Tu as racheté l\'hôtel-chalet. Rénove-le pour ouvrir !',
+    start:{ bought:['fournisseur'], reserve:0, vit:{}, oven:0 },
+    layout:{ caisse:{x:318,y:528,w:56,h:30}, cash:{x:322,y:478,w:44,h:40}, trash:{x:334,y:372,w:38,h:38}, q:i => [300 - i * 24, 594], app:{x:332,y:530}, srv:[322,372] },
+    seats:HOTEL_TABLES.flatMap((t, i) => [-1, 1].map(side => ({ x:t.x + side * 20, y:t.y + 2, table:i, side, need:t.need }))),
+    upg:[
+      { id:'ouverture',  name:'Rénover l\'hôtel',        sub:'lits et rideaux neufs',  price:8000,  x:180, y:300, after:[],                       msg:'L\'hôtel ouvre : les premiers clients arrivent avec leurs valises' },
+      { id:'apprenti',   name:'Réceptionniste',          sub:'donne les clés',         price:6000,  x:320, y:425, after:['ouverture'],            msg:'La réceptionniste accueille les clients. Pense à ramasser l\'argent' },
+      { id:'bagagiste',  name:'Bagagiste',               sub:'monte les valises',      price:9000,  x:240, y:455, after:['apprenti'],             msg:'Le bagagiste monte les valises dans les chambres' },
+      { id:'ch2',        name:'Deux chambres de plus',   sub:'2e étage',               price:12000, x:180, y:200, after:['bagagiste'],            msg:'Deux nouvelles chambres ouvertes' },
+      { id:'femme',      name:'Femme de chambre',        sub:'prépare les chambres',   price:12000, x:180, y:300, after:['bagagiste'],            msg:'La femme de chambre prépare les chambres avec le linge propre' },
+      { id:'petitdej',   name:'Petit-déjeuner',          sub:'café et croissants',     price:15000, x:240, y:455, after:['femme','ch2'],          msg:'Petit-déjeuner ouvert : les clients descendent manger avant de partir' },
+      { id:'serveurpdj', name:'Serveuse',                sub:'sert le petit-déjeuner', price:14000, x:180, y:300, after:['petitdej'],             msg:'La serveuse sert le petit-déjeuner' },
+      { id:'jus',        name:'Presse-agrumes',          sub:'jus d\'orange pressé',   price:12000, x:320, y:425, after:['petitdej'],             msg:'Nouveau : jus d\'orange pressé !' },
+      { id:'ch3',        name:'Deux chambres de plus',   sub:'dernier étage',          price:20000, x:180, y:200, after:['serveurpdj'],           msg:'Deux chambres de plus : 6 chambres en tout' },
+      { id:'femme2',     name:'2e femme de chambre',     sub:'prépare les chambres',   price:18000, x:180, y:300, after:['ch3'],                  msg:'Une deuxième femme de chambre rejoint l\'équipe' },
+      { id:'salle',      name:'Deux tables de plus',     sub:'salle du petit-déj',     price:15000, x:240, y:455, after:['jus','serveurpdj'],     msg:'Deux tables de plus pour le petit-déjeuner' },
+      { id:'suites',     name:'Literie de luxe',         sub:'chambres +50 %',         price:25000, x:180, y:200, after:['ch3','femme2'],         msg:'Literie de luxe : les chambres se louent plus cher' },
+      { id:'enseigne',   name:'Navette depuis la gare',  sub:'plus de clients',        price:25000, x:320, y:425, after:['salle','suites'],       msg:'La navette amène des clients de la gare' },
+      { id:'renovation', name:'Spa avec vue',            sub:'la touche finale',       price:50000, x:180, y:300, after:['enseigne'],             msg:'Spa avec vue : ton hôtel-chalet est le plus beau des Alpes !' },
+    ],
+    theme:{ kitchen:['#c99a66','#b5864f'], kitchenReno:['#c99a66','#b5864f'], shop:'planks', shopCol:['#efe6d6','#ddd0bb'], shopReno:['#f6efe2','#ddd0bb'], signLit:'#d4af37', rug:'#8a2f35' },
+    text:{ defaultName:'Hôtel', ask:'Comment s\'appelle ton hôtel ?', go:'Ouvrir mon hôtel',
+      ideas:['Hôtel des Cimes','Le Chalet Étoilé','Grand Hôtel du Glacier'], source:'', putRaw:'', take:'', wait:'',
+      sandTo:'', sand:'', pat:'', final:'Ton hôtel-chalet est le plus beau des Alpes !', short:'Hôtel' },
   },
 };
 SHOPS.pizzeria.arrive = SHOPS.pizzeria.arrive || '';
@@ -497,6 +546,10 @@ function applyUpgrades(){
   const runners = (has('boulanger') ? 1 : 0) + (has('boulanger2') ? 1 : 0);
   while (workers.filter(w => w.role === 'boulanger').length < runners) workers.push(makeWorker('boulanger'));
   if ((has('serveur') || (CFG.makeup && has('tables'))) && !workers.some(w => w.role === 'serveur')) workers.push(makeWorker('serveur'));
+  // hôtel : chaque employé a son métier
+  if (CFG.hotel) [['bagagiste', 'bags'], ['femme', 'rooms'], ['femme2', 'rooms'], ['serveurpdj', 'brk']].forEach(([id, job]) => {
+    if (has(id) && !workers.some(w => w.hid === id)) { const w = makeWorker('hotel'); w.job = job; w.hid = id; w.x = HOTEL_IDLE[job][0]; w.y = HOTEL_IDLE[job][1]; workers.push(w); }
+  });
   for (const w of workers) w.cap = lv('wcap');
 }
 // entre dans un commerce : branche sa config, son état, et verse le revenu gagné pendant l'absence
@@ -508,7 +561,7 @@ function enterShop(id, quiet){
   SEATS = CFG.seats || DEFAULT_SEATS;
   player.stack = (S.stack || []).filter(t => t === RAW || CFG.products[t]).slice(0, 12);
   player.x = 90; player.y = 372;
-  workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5; cart = null; criticT = rnd(180, 300);
+  workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5; cart = null; criticT = rnd(180, 300); bus = null; busT = rnd(200, 320);
   influT = rnd(360, 600); refundT = rnd(180, 300); boostT = 0; influCine = null; refundC = null; flashes = []; refundPanel.hidden = true;
   applyUpgrades(); lastStars = '';
   if (actx) Music.play(id);
@@ -526,7 +579,7 @@ function passiveRate(id){
   const st = GAME.shops[id], cfg = SHOPS[id];
   if (!st.bought.includes('apprenti') || (cfg.locked && !st.bought.includes('ouverture'))) return 0;
   const n = cfg.ovens.filter(o => !o.unlock || st.bought.includes(o.unlock)).length;
-  const staff = st.bought.includes('boulanger') && (cfg.noRaw || st.bought.includes('mitron')) ? 1 : .3;
+  const staff = (st.bought.includes('boulanger') || st.bought.includes('bagagiste')) && (cfg.noRaw || st.bought.includes('mitron')) ? 1 : .3;
   return .42 * n * staff * (st.rating / 4) * cfg.passiveMul;
 }
 function updatePassive(dt){
@@ -726,6 +779,13 @@ const INST = {
     const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3200; f.connect(voice(t, d, v, .01, .08));
     [['square', 1], ['sine', .8]].forEach(([ty, a], i) => { const o = actx.createOscillator(), og = actx.createGain(); o.type = ty; o.frequency.value = midiHz(m) * (i ? 2 : 1); og.gain.value = a; o.connect(og).connect(f); o.start(t); o.stop(t + d + .15); });
   },
+  // flûte : sinus doux, léger vibrato
+  flute(t, m, d, v){
+    const g = voice(t, d, v, .06, .12), lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 5; lg.gain.value = 7; lfo.connect(lg);
+    const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = midiHz(m); lg.connect(o.detune); o.connect(g);
+    const o2 = actx.createOscillator(), g2 = actx.createGain(); o2.type = 'triangle'; o2.frequency.value = midiHz(m) * 2; g2.gain.value = .12; o2.connect(g2).connect(g);
+    [o, o2, lfo].forEach(x => { x.start(t); x.stop(t + d + .2); });
+  },
   hat(t, m, d, v){
     const n = noise(), f = actx.createBiquadFilter(), g = actx.createGain(); f.type = 'highpass'; f.frequency.value = 7500;
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .05); n.connect(f).connect(g).connect(musicBus); n.start(t); n.stop(t + .07);
@@ -827,6 +887,29 @@ function buildTracks(){
      [14, 0, 77, 3], [14, 3, 74, 3], [14, 6, 76, 3], [14, 9, 70, 3], [15, 0, 72, 5], [15, 6, 77, 6]]
       .forEach(([b, k, m, d]) => add(ev, b * 12 + k, 'ep', m, d - .3, .045));
     T.resto = { step:.18, steps:192, ev };
+  }
+  // Hôtel : bossa-nova feutrée de hall d'hôtel, flûte douce, piano et basse (do majeur)
+  {
+    const ev = [], ch = { C:[48, [59, 64, 67]], Am:[45, [55, 60, 64]], Dm:[50, [57, 60, 65]], G7:[43, [59, 65, 69]], Em:[40, [55, 59, 62]],
+      A7:[45, [55, 61, 64]], C7:[48, [58, 64, 67]], F:[41, [57, 60, 64]], Fm:[41, [56, 60, 63]] };
+    const bars = [['C'], ['Am'], ['Dm'], ['G7'], ['Em'], ['A7'], ['Dm'], ['G7'], ['C'], ['C7'], ['F'], ['Fm'], ['Em'], ['A7'], ['Dm', 'G7'], ['C']];
+    bars.forEach((names, bar) => {
+      const s = bar * 8;
+      names.forEach((n, k) => {
+        const [r, tones] = ch[n], at = s + k * 4, whole = names.length === 1;
+        add(ev, at, 'bass', r, 2.6, .24); add(ev, at + 3, 'bass', r + 7, .9, .18);
+        if (whole) { add(ev, at + 4, 'bass', r, 2.6, .2); add(ev, at + 7, 'bass', r + 7, .9, .16); }
+        (whole ? [0, 3, 6] : [0, 3]).forEach(j => add(ev, at + j, 'ep', tones, 1.4, .014));
+      });
+      for (let k = 0; k < 8; k++) add(ev, s + k, 'hat', 0, .2, k % 2 ? .005 : .009);
+      add(ev, s + 3, 'tamb', 0, .2, .008); add(ev, s + 6, 'tamb', 0, .2, .008);
+    });
+    [[0, 0, 76, 3], [0, 3, 74, 1], [0, 4, 76, 4], [1, 0, 72, 6], [1, 6, 71, 2], [2, 0, 72, 3], [2, 3, 74, 1], [2, 4, 77, 4], [3, 0, 76, 6], [3, 6, 74, 2],
+     [4, 0, 74, 3], [4, 3, 71, 1], [4, 4, 74, 4], [5, 0, 73, 6], [5, 6, 76, 2], [6, 0, 77, 3], [6, 3, 76, 1], [6, 4, 74, 4], [7, 0, 71, 8],
+     [8, 0, 79, 3], [8, 3, 76, 1], [8, 4, 79, 4], [9, 0, 82, 6], [9, 6, 79, 2], [10, 0, 81, 3], [10, 3, 79, 1], [10, 4, 77, 4], [11, 0, 80, 6], [11, 6, 77, 2],
+     [12, 0, 76, 3], [12, 3, 74, 1], [12, 4, 71, 4], [13, 0, 73, 4], [13, 4, 76, 4], [14, 0, 74, 4], [14, 4, 71, 4], [15, 0, 72, 8]]
+      .forEach(([b, k, m, d]) => add(ev, b * 8 + k, 'flute', m, d - .2, .05));
+    T.hotel = { step:.22, steps:128, ev };
   }
   for (const k in T) { const tr = T[k]; tr.at = []; tr.ev.forEach(e => (tr.at[Math.round(e[0])] = tr.at[Math.round(e[0])] || []).push(e)); }
   return T;
@@ -962,6 +1045,7 @@ const HATS  = ['#e8e1d3','#c8433a','#f2b632','#3f6b8f','#6f8f55','#d36f9a'];
 function spawnCustomer(){
   if (CFG.selfServe) return spawnSelf();
   if (CFG.resto) return spawnResto();
+  if (CFG.hotel) return spawnHotel();
   const prods = products();
   const used = new Set(customers.filter(c => c.slot != null).map(c => c.slot));
   const free = VSLOTS.map((_, i) => i).filter(i => !used.has(i));
@@ -1071,19 +1155,20 @@ function sitDown(c){
 }
 function leave(c, mood){
   if (mood === 'angry') sfx.grumble();
-  c.state = 'leave'; c.mood = mood; c.slot = null; c.seat = null;
+  c.state = 'leave'; c.mood = mood; c.slot = null; c.seat = null; c.room = null;
+  if (c.bagOut) { c.bagOut = false; S.bags = Math.max(0, (S.bags || 0) - 1); }
   c.path = [[DOOR_IN.x, DOOR_IN.y], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_OUT.x, 700], [c.side, 700]];
 }
 
 // ---------- Restaurant : service à table ----------
 // le client s'assoit, commande un plat, tu le lui apportes, il mange puis passe payer à la caisse
-const boost = () => CFG.resto ? 1 + .15 * (S.michelin || 0) : 1;   // chaque étoile du guide : +15 % sur les plats
+const boost = () => CFG.resto ? 1 + .15 * (S.michelin || 0) : CFG.hotel && has('suites') ? 1.5 : 1;   // chaque étoile du guide : +15 % sur les plats
 const seatOpen = i => !SEATS[i].need || has(SEATS[i].need);
 const seatZone = i => ({ x:SEATS[i].x, y:SEATS[i].y - 8, w:44, h:44 });
 let cart = null, cleanT = 0;
 function freeSeat(){
   const taken = new Set(customers.filter(o => o.seat != null).map(o => o.seat));
-  const f = SEATS.map((_, i) => i).filter(i => seatOpen(i) && !taken.has(i) && !S.dirty.includes(i));
+  const f = SEATS.map((_, i) => i).filter(i => seatOpen(i) && !taken.has(i) && (CFG.hotel || !S.dirty.includes(i)));
   return f.length ? f[Math.floor(Math.random() * f.length)] : null;
 }
 function pickWant(prods){
@@ -1168,7 +1253,9 @@ function restoCommis(w){
   return null;
 }
 function deliver(w, c){
-  if (c.state === 'order' && !c.gone && w.stack.includes(c.want)) { removeOne(w, c.want); serveCustomer(c); }
+  if (c.gone) return false;
+  if (c.state === 'bagwait' && w.stack.includes('valise')) { removeOne(w, 'valise'); bagDelivered(c); }
+  else if (c.state === 'order' && w.stack.includes(c.want)) { removeOne(w, c.want); serveCustomer(c); }
   return false;
 }
 function restoPlayer(dt){
@@ -1257,6 +1344,236 @@ function drawStoveBody(st, p){
   if (st.prog > 0) rr(-16, 24, 32 * (st.prog / p.time), 3, 1.5, '#f2b632');
 }
 
+// ---------- Hôtel-chalet : réception, valises, chambres à préparer, petit-déjeuner ----------
+// le client donne sa valise à la réception et monte ; tu lui apportes la valise, il dort,
+// puis il descend prendre son petit-déjeuner ; sa chambre est à refaire avec du linge propre
+const BAG_Z = { x:240, y:520, w:44, h:40 };
+const HOTEL_IDLE = { bags:[262, 486], rooms:[96, 440], brk:[110, 520] };
+let bagT = 0, bus = null;
+const roomOpen = i => !HOTEL_ROOMS[i].need || has(HOTEL_ROOMS[i].need);
+const roomZone = i => ({ x:HOTEL_ROOMS[i].x, y:HOTEL_ROOMS[i].y, w:120, h:76 });
+// là où le client attend et où l'on se place pour le servir : côté couloir
+function roomStand(i){ const R = HOTEL_ROOMS[i], side = R.x < 180 ? 1 : -1; return { x:R.x + side * 34, y:R.y + 30 }; }
+const serveSpot = c => c.state === 'bagwait' && c.room != null ? roomStand(c.room) : SEATS[c.seat];
+const roomTaken = i => customers.some(o => o.room === i);
+function freeRoom(){
+  const f = HOTEL_ROOMS.map((_, i) => i).filter(i => roomOpen(i) && !roomTaken(i) && !S.dirty.includes(i));
+  return f.length ? f[0] : null;
+}
+const countIn = (list, t) => list.reduce((n, o) => n + o.stack.filter(x => x === t).length, 0);
+const brkProducts = () => OVENS.filter(o => o.brk && unlocked(o)).map(o => o.prod);
+function hotelGuest(x){
+  const side = x != null ? x : Math.random() < .5 ? -14 : 374;
+  return { x:side, y:700, side:side < 180 ? -14 : 374, state:'enter', slot:null, want:'chambre', qty:1, got:1, pat:40, t:0, pay:0, wait:0, thief:false, dine:false, spent:0, seat:null, room:null,
+    path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y], [180 + rnd(-24, 24), 600]],
+    coat:COATS[Math.floor(Math.random() * COATS.length)], hat:HATS[Math.floor(Math.random() * HATS.length)], mood:null };
+}
+// les clients ne viennent que s'il reste à peu près de la place
+function spawnHotel(){
+  const rooms = HOTEL_ROOMS.filter((_, i) => roomOpen(i) && !roomTaken(i)).length;
+  const coming = customers.filter(c => ['enter', 'shop', 'queue'].includes(c.state) && !c.refund).length;
+  if (coming >= Math.max(1, rooms + 1 + (has('enseigne') ? 1 : 0))) return;
+  customers.push(hotelGuest());
+}
+function checkIn(c){
+  const r = freeRoom(); if (r == null) { leave(c, 'meh'); return; }
+  const R = HOTEL_ROOMS[r], st = roomStand(r);
+  c.room = r; c.state = 'toroom'; c.bagOut = true; S.bags = (S.bags || 0) + 1;
+  c.path = [[180, 340], [180, st.y - 20], [st.x, st.y - 20]];
+  float(R.x, R.y - 40, 'Chambre ' + (r + 1), '#3f6b4f');
+}
+function bagDelivered(c){
+  c.bagOut = false; c.state = 'sleep'; c.t = 0; sfx.ding();
+  if (c.influ) influResult(c, true);
+  else review(c, c.wait < 12 ? 5 : c.wait < 22 ? 4 : 3);
+}
+function hotelTick(c, dt){
+  if (c.state === 'shop') { toQueue(c); return true; }
+  if (c.state === 'toroom') { if (followPath(c, 62, dt)) { c.state = 'bagwait'; c.wait = 0; c.pat = 40; } return true; }
+  if (c.state === 'bagwait') {
+    c.wait += dt; c.pat -= dt;
+    if (c.pat <= 0 && !c.influ) { float(c.x, c.y - 70, 'Ma valise ?!', '#c8433a'); review(c, 1); leave(c, 'angry'); }
+    return true;
+  }
+  if (c.state === 'sleep') {
+    c.t += dt;
+    if (c.t > 10) {
+      const R = HOTEL_ROOMS[c.room]; S.dirty.push(c.room); c.room = null;
+      const seat = has('petitdej') ? freeSeat() : null;
+      if (seat == null) { leave(c, 'happy'); return true; }
+      const s = SEATS[seat];
+      c.seat = seat; c.want = pickWant(brkProducts()); c.state = 'brkgo';
+      c.path = [[180, R.y + 10], [180, 340], [s.x, s.y + 30], [s.x, s.y]];
+    }
+    return true;
+  }
+  if (c.state === 'brkgo') { if (followPath(c, 62, dt)) { c.state = 'order'; c.wait = 0; c.pat = 30; } return true; }
+  if (c.state === 'order') {
+    c.wait += dt; c.pat -= dt;
+    if (c.pat <= 0) { review(c, 2); leave(c, 'meh'); }
+    return true;
+  }
+  if (c.state === 'eat') {
+    c.t += dt;
+    if (c.t > 6) {
+      const earn = PRODUCTS[c.want].price; S.cash += earn; GAME.earned += earn; S.sold++;
+      float(c.x, c.y - 40, '+' + earn + ' €', '#8a6410'); leave(c, 'happy');
+    }
+    return true;
+  }
+  return false;
+}
+function takeBag(w){
+  if (!(S.bags > 0) || w.stack.length >= w.cap) return false;
+  S.bags--; w.stack.push('valise'); return true;
+}
+function cleanRoom(w, r){
+  if (S.dirty.includes(r) && !roomTaken(r) && w.stack.includes('linge')) { removeOne(w, 'linge'); S.dirty.splice(S.dirty.indexOf(r), 1); }
+  return false;
+}
+function hotelPlayer(dt){
+  if (near(player, BAG_Z) && S.bags > 0 && player.stack.length < player.cap) { bagT -= dt; if (bagT <= 0) { bagT = .15; takeBag(player); tick(600); } }
+  for (const c of customers) {
+    if (c.state === 'bagwait' && player.stack.includes('valise') && near(player, roomZone(c.room))) { removeOne(player, 'valise'); bagDelivered(c); tick(880); }
+    else if (c.state === 'order' && c.seat != null && player.stack.includes(c.want) && near(player, seatZone(c.seat))) { removeOne(player, c.want); serveCustomer(c); tick(880); }
+  }
+  // préparer une chambre : rester un instant dedans avec du linge propre
+  const r = S.dirty.find(i => near(player, roomZone(i)) && !roomTaken(i));
+  if (r != null && player.stack.includes('linge')) {
+    cleanT += dt;
+    if (cleanT > .6) { cleanT = 0; cleanRoom(player, r); tick(980); float(HOTEL_ROOMS[r].x, HOTEL_ROOMS[r].y - 30, 'Chambre prête', '#3f6b4f'); }
+  } else cleanT = 0;
+}
+// employés : bagagiste, femmes de chambre, serveuse du petit-déjeuner
+function hotelThink(w){
+  if (w.job === 'brk') return restoThink(w);
+  const claimed = new Set(workers.filter(o => o !== w && o.task).map(o => o.task.c || ('r' + o.task.r)));
+  if (w.job === 'bags') {
+    const waiting = customers.filter(c => c.state === 'bagwait' && !claimed.has(c)).sort((a, b) => a.pat - b.pat);
+    if (w.stack.includes('valise') && waiting.length) return { type:'serve', c:waiting[0] };
+    const want = customers.filter(c => c.state === 'bagwait' || c.state === 'toroom').length;
+    const held = countIn(workers.concat([player]), 'valise');
+    if (S.bags > 0 && want > held && w.stack.length < w.cap) return { type:'bag', max:want - held };
+    return { type:'wait' };
+  }
+  const dirty = S.dirty.filter(i => !roomTaken(i) && !claimed.has('r' + i));
+  if (w.stack.includes('linge') && dirty.length) return { type:'clean', r:dirty[0] };
+  const lin = OVENS.find(o => o.prod === 'linge'), mine = w.stack.filter(t => t === 'linge').length;
+  if (dirty.length > mine && S.ov[lin.id].out > 0 && w.stack.length < w.cap) return { type:'take', o:lin, max:dirty.length - mine };
+  return { type:'wait' };
+}
+function hotelHint(){
+  const st = player.stack, guests = customers.filter(c => c.state === 'bagwait');
+  if (st.includes('valise') && guests.length) return ['Monte la valise dans sa chambre', roomStand(guests[0].room)];
+  const dirty = S.dirty.filter(i => !roomTaken(i));
+  if (st.includes('linge') && dirty.length) return ['Prépare la chambre avec le linge propre', roomStand(dirty[0])];
+  const brk = customers.find(c => c.state === 'order' && c.seat != null && st.includes(c.want));
+  if (brk) return ['Apporte « ' + PRODUCTS[brk.want].name + ' » à sa table', SEATS[brk.seat]];
+  const want = guests.length + customers.filter(c => c.state === 'toroom').length;
+  if (S.bags > 0 && want > countIn(workers.concat([player]), 'valise') && st.length < player.cap && !has('bagagiste')) return ['Prends une valise à la bagagerie', BAG_Z];
+  const lin = OVENS.find(o => o.prod === 'linge');
+  if (dirty.length && !st.includes('linge') && !has('femme') && (dirty.length >= 2 || freeRoom() == null)) return ['Prends du linge propre pour préparer les chambres', lin.zone];
+  const need = customers.find(c => c.state === 'order' && !st.includes(c.want));
+  const o = need && OVENS.find(o => unlocked(o) && o.prod === need.want && S.ov[o.id].out > 0);
+  if (o && st.length < player.cap && !has('serveurpdj')) return ['Prends « ' + PRODUCTS[need.want].name + ' » pour le petit-déjeuner', o.zone];
+  if (queue.length && freeRoom() == null && dirty.length) return ['Plus de chambre libre : prépare une chambre', lin.zone];
+  return null;
+}
+// car de touristes : quatre clients d'un coup, un peu plus patients
+function spawnBus(){ bus = { x:-70, y:700, state:'in', t:0, n:4 }; toast('Un car de touristes arrive !'); sfx.engine(); }
+function updateBus(dt){
+  if (!bus) return;
+  if (bus.state === 'in') { if (moveTo(bus, 110, 700, 90, dt)) bus.state = 'stop'; }
+  else if (bus.state === 'stop') {
+    bus.t += dt;
+    if (bus.n > 0 && bus.t > .7) { bus.t = 0; bus.n--; const c = hotelGuest(bus.x + 30); c.wait = -30; customers.push(c); }
+    else if (!bus.n && bus.t > 2) bus.state = 'out';
+  } else if (moveTo(bus, 440, 700, 110, dt)) bus = null;
+}
+function hotelLook(w){
+  return w.job === 'bags' ? { body:'#b8312f', buttons:'#d4af37', pillbox:'#b8312f' }
+    : w.job === 'rooms' ? { body:'#2c2c2c', apron:'#ffffff', hair:'#5a3424', hairStyle:'bun' }
+    : { body:'#f4efe6', apron:'#3f6b4f', hair:'#e0b354', hairStyle:'pony' };
+}
+// ----- dessin de l'hôtel -----
+function drawHotelFloor(){
+  const reno = has('renovation');
+  // chambres : parquet ; couloir central : tapis
+  ctx.fillStyle = '#c99a66'; ctx.fillRect(0, 70, 360, 265);
+  ctx.strokeStyle = '#b5864f'; ctx.lineWidth = 1;
+  for (let y = 70, r = 0; y < 335; y += 12, r++) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(360, y); ctx.stroke(); for (let x = (r % 2) * 30; x < 360; x += 60) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 12); ctx.stroke(); } }
+  ctx.fillStyle = '#8a2f35'; ctx.fillRect(140, 70, 80, 265); ctx.fillStyle = '#d4af37'; ctx.fillRect(146, 70, 2, 265); ctx.fillRect(212, 70, 2, 265);
+  // hall : dallage clair
+  ctx.fillStyle = reno ? '#f6efe2' : '#efe6d6'; ctx.fillRect(0, 335, 360, 291);
+  ctx.strokeStyle = '#ddd0bb'; for (let y = 335; y < 626; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(360, y); ctx.stroke(); }
+  for (let x = 0; x < 360; x += 30) { ctx.beginPath(); ctx.moveTo(x, 335); ctx.lineTo(x, 626); ctx.stroke(); }
+  if (reno) { rr(110, 576, 140, 40, 10, '#8a2f35'); rr(116, 582, 128, 28, 7, null, '#d4af37', 1.6); }
+}
+function drawBed(i){
+  const R = HOTEL_ROOMS[i], side = R.x < 180 ? 1 : -1, bx = R.x - side * 12, by = R.y - 4, dirty = S.dirty.includes(i);
+  const sleeper = customers.find(c => c.room === i && c.state === 'sleep');
+  rr(bx - 28, by - 17, 56, 34, 4, '#6b4226', '#3f2716', 1.4);
+  rr(bx - 25, by - 14, 50, 28, 3, '#fbf8f2');
+  const px = bx - side * 17;
+  rr(px - 6, by - 11, 12, 22, 4, '#ffffff', '#c9c0b0', 1);
+  if (dirty) {
+    ctx.fillStyle = '#d8d1c4'; ctx.beginPath(); ctx.moveTo(bx - side * 9, by - 14); ctx.quadraticCurveTo(bx + side * 6, by - 2, bx - side * 4, by + 14);
+    ctx.lineTo(bx + side * 25, by + 14); ctx.lineTo(bx + side * 25, by - 14); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#b3aa9b'; ctx.lineWidth = 1; [-6, 2, 9].forEach(d => { ctx.beginPath(); ctx.moveTo(bx + side * 4, by + d); ctx.lineTo(bx + side * 18, by + d - 3); ctx.stroke(); });
+  } else {
+    rr(Math.min(bx - side * 9, bx + side * 25), by - 14, 34, 28, 3, sleeper ? sleeper.coat : '#8a2f35');
+    ctx.fillStyle = '#fbf8f2'; ctx.fillRect(Math.min(bx - side * 9, bx - side * 5), by - 14, 4, 28);
+  }
+  if (sleeper) {
+    circle(px, by, 6, '#f1c9a5', '#33241a', 1.2);
+    const k = (tclock * .8) % 1; ctx.globalAlpha = 1 - k; text('z', px + side * 6, by - 12 - k * 14, 8 + k * 4, '#3f6b8f'); ctx.globalAlpha = 1;
+  }
+}
+function drawHotelFurniture(){
+  // chambres : cloisons, portes côté couloir, numéros
+  HOTEL_ROOMS.forEach((R, i) => {
+    const left = R.x < 180, wx = left ? 140 : 220, top = R.y - 42, bot = R.y + 42;
+    ctx.fillStyle = '#7a5a3a';
+    ctx.fillRect(left ? 7 : 220, bot - 2, 133, 4);
+    ctx.fillRect(wx - 2, top, 4, 40); ctx.fillRect(wx - 2, R.y + 36, 4, 6);
+    if (!roomOpen(i)) { ctx.fillStyle = 'rgba(60,45,30,.55)'; ctx.fillRect(left ? 7 : 222, top, 131, 84); text('Chambre fermée', R.x, R.y, 8, '#fff6e8'); return; }
+    drawBed(i);
+    rr(left ? R.x - 54 : R.x + 38, R.y - 34, 16, 12, 2, '#a7774b', '#5e3d22', 1);
+    text(String(i + 1), wx + (left ? -10 : 10), R.y + 22, 8, '#fff6e8');
+  });
+  // bagagerie
+  rr(BAG_Z.x - 24, BAG_Z.y - 6, 48, 26, 4, '#a7774b', '#5e3d22', 1.4);
+  for (let k = 0; k < Math.min(S.bags || 0, 6); k++) drawItem('valise', BAG_Z.x - 14 + (k % 3) * 14, BAG_Z.y + 4 - Math.floor(k / 3) * 10, .7);
+  text('Bagagerie ' + (S.bags || 0), BAG_Z.x, BAG_Z.y + 30, 7.5);
+  // salle du petit-déjeuner
+  HOTEL_TABLES.forEach(t => {
+    if (t.need && !has(t.need)) { ctx.setLineDash([4, 4]); rr(t.x - 14, t.y - 12, 28, 24, 4, 'rgba(51,36,26,.04)', 'rgba(51,36,26,.3)', 1.4); ctx.setLineDash([]); return; }
+    [-1, 1].forEach(sd => circle(t.x + sd * 20, t.y + 4, 6, '#a7774b', '#5e3d22', 1.2));
+    rr(t.x - 14, t.y - 12, 28, 24, 4, '#ffffff', '#b9ae9c', 1.4);
+  });
+  // réception
+  rr(288, 540, 64, 24, 5, '#5e3b22'); ctx.fillStyle = '#7a4b2a'; ctx.fillRect(288, 540, 64, 5);
+  circle(306, 548, 4, '#d4af37', '#8a6410', 1); rr(318, 545, 22, 12, 2, '#3f4b4f', '#222', 1);
+  text('Réception', 320, 572, 7.5);
+  if (bus) {
+    rr(bus.x - 52, bus.y - 14, 104, 28, 7, '#f2b632', '#33241a', 1.6);
+    for (let k = 0; k < 5; k++) rr(bus.x - 44 + k * 18, bus.y - 9, 13, 9, 2, '#9cc6e4', '#33241a', .8);
+    circle(bus.x - 32, bus.y + 14, 5, '#111'); circle(bus.x + 32, bus.y + 14, 5, '#111');
+  }
+}
+// postes du hall : lingerie, machine à café, panier de croissants, presse-agrumes
+function drawHotelStation(o){
+  const st = S.ov[o.id], p = PRODUCTS[o.prod], x = o.x, y = o.y;
+  if (!unlocked(o)) { ctx.setLineDash([4, 4]); rr(x - 24, y - 18, 48, 36, 6, 'rgba(51,36,26,.05)', 'rgba(51,36,26,.3)', 1.4); ctx.setLineDash([]); return; }
+  if (o.prod === 'linge') { rr(x - 22, y - 20, 26, 34, 4, '#f4f7fa', '#6d7680', 1.4); circle(x - 9, y - 1, 8, '#9cc6e4', '#6d7680', 1.4); }
+  else if (o.prod === 'cafe') { rr(x - 18, y - 20, 22, 32, 3, '#3a3f44', '#1d2124', 1.4); rr(x - 13, y - 14, 12, 6, 1, '#9fd39a'); }
+  else if (o.prod === 'croissant') { ctx.beginPath(); ctx.ellipse(x - 7, y, 16, 9, 0, 0, 7); ctx.fillStyle = '#c99a5e'; ctx.fill(); ctx.strokeStyle = '#7a5a33'; ctx.lineWidth = 1.4; ctx.stroke(); }
+  else { rr(x - 18, y - 20, 22, 32, 3, '#ffffff', '#6d7680', 1.4); rr(x - 15, y - 12, 16, 16, 2, '#f2a33a'); }
+  for (let k = 0; k < st.out; k++) drawItem(o.prod, x + 12 + (k % 2) * 10, y - 12 + Math.floor(k / 2) * 8, .5);
+  if (st.prog > 0) { rr(x - 18, y + 18, 32, 4, 2, 'rgba(51,36,26,.25)'); rr(x - 18, y + 18, 32 * st.prog / p.time, 4, 2, '#f2b632'); }
+  text(p.name, x, y + 30, 7);
+}
+
 function updateCustomers(dt){
   if (!isOpen()) return;
   const n = products().length;
@@ -1270,6 +1587,7 @@ function updateCustomers(dt){
     if (c.state === 'refundGo') { if (followPath(c, 62, dt)) { c.state = 'refundWait'; openRefund(c); } continue; }
     if (c.state === 'refundWait') continue;
     if (CFG.resto && restoTick(c, dt)) continue;
+    if (CFG.hotel && hotelTick(c, dt)) continue;
     if (c.state === 'enter') {
       if (!c.bell && !c.refuse && c.y < 626) { c.bell = true; sfx.bell(); }
       if (followPath(c, 62, dt)) { if (c.refuse) { c.state = 'refused'; c.t = 0; sfx.refuse(); } else c.state = 'shop'; }
@@ -1290,7 +1608,7 @@ function updateCustomers(dt){
     } else if (c.state === 'queue') {
       const i = queue.indexOf(c);
       const qp = LAYOUT.q(i), there = moveTo(c, qp[0], qp[1], 62, dt);
-      const serving = i === 0 && there && manned();
+      const serving = i === 0 && there && manned() && (!CFG.hotel || freeRoom() != null);
       if (!serving) c.wait += dt;
       c.spent += dt;
       if (c.wait > 50) {
@@ -1305,9 +1623,9 @@ function updateCustomers(dt){
           S.cash += earn; GAME.earned += earn; S.sold += soldOf(c);
           float(c.x, c.y - 30, '+' + earn + ' €', '#8a6410'); blip(1200, .06, 'square', .02);
           queue.shift();
-          if (c.influ) influResult(c, true);
-          else if (!CFG.resto) review(c, c.basket ? (c.missed ? 3 : c.spent < 40 ? 5 : 4) : c.spent < 22 ? 5 : c.spent < 38 ? 4 : 3);
-          if (c.dine) sitDown(c); else leave(c, 'happy');
+          if (c.influ) { if (!CFG.hotel) influResult(c, true); }
+          else if (!CFG.resto && !CFG.hotel) review(c, c.basket ? (c.missed ? 3 : c.spent < 40 ? 5 : 4) : c.spent < 22 ? 5 : c.spent < 38 ? 4 : 3);
+          if (CFG.hotel) checkIn(c); else if (c.dine) sitDown(c); else leave(c, 'happy');
         }
       }
     } else if (c.state === 'sit') {
@@ -1431,14 +1749,17 @@ function updateWorkers(dt){
   for (const w of workers) {
     if (w.role === 'serveur') { updateServer(w, dt); continue; }
     w.think -= dt;
-    if (!w.task || w.think <= 0) { w.task = w.role === 'mitron' ? (CFG.resto && restoCommis(w)) || mitronThink(w) : CFG.resto ? restoThink(w) : boulangerThink(w); w.think = 1.2; }
+    if (!w.task || w.think <= 0) { w.task = w.role === 'mitron' ? (CFG.resto && restoCommis(w)) || mitronThink(w) : CFG.resto ? restoThink(w) : CFG.hotel ? hotelThink(w) : boulangerThink(w); w.think = 1.2; }
     const t = w.task;
     let tx, ty;
     if (t.type === 'vit') { if (t.p) { const z = gzone(t.p); tx = z.x + (w.idx || 0) * 14 - 7; ty = z.y; } else { tx = 150; ty = 408; } }
     else if (t.type === 'drop' || t.type === 'take') { tx = t.o.zone.x + (w.role === 'mitron' ? -8 : 8); ty = t.o.zone.y + 4; }
     else if (t.type === 'res') { tx = FLOUR_Z.x + 12; ty = FLOUR_Z.y + 8; }
-    else if (t.type === 'serve') { const st = SEATS[t.c.seat] || w; tx = st.x; ty = st.y - 20; }
+    else if (t.type === 'serve') { const st = serveSpot(t.c) || w; tx = st.x; ty = st.y - 20; }
+    else if (t.type === 'clean') { const st = roomStand(t.r); tx = st.x; ty = st.y - 20; }
+    else if (t.type === 'bag') { tx = BAG_Z.x; ty = BAG_Z.y - 14; }
     else if (t.type === 'trash') { tx = TRASH_Z.x; ty = TRASH_Z.y + 14; }
+    else if (w.role === 'hotel') { [tx, ty] = HOTEL_IDLE[w.job]; }
     else if (w.role === 'mitron') { tx = 98; ty = 250; } else { tx = 200; ty = 360; }
     // réserve fermée : on passe par la porte du milieu
     if (CFG.reserveWall && (w.y < WALL_Y) !== (ty < WALL_Y)) {
@@ -1455,6 +1776,8 @@ function updateWorkers(dt){
         else if (t.type === 'res') ok = actReserve(w);
         else if (t.type === 'serve') ok = deliver(w, t.c);
         else if (t.type === 'trash') { ok = w.stack.length > 0; w.stack.pop(); }
+        else if (t.type === 'bag') ok = (t.n = (t.n || 0) + 1) <= t.max && takeBag(w);
+        else if (t.type === 'clean') ok = cleanRoom(w, t.r);
         if (ok) w.act = .2 / lv('wspeed'); else w.think = 0;
       }
     }
@@ -1474,7 +1797,7 @@ function updatePlayer(dt){
   const L = Math.hypot(vx, vy); if (L > 1) { vx /= L; vy /= L; }
   const py0 = player.y;
   player.x = Math.max(18, Math.min(342, player.x + vx * player.speed * dt));
-  player.y = Math.max(84, Math.min(CFG.selfServe || CFG.resto ? 612 : 420, player.y + vy * player.speed * dt));
+  player.y = Math.max(84, Math.min(CFG.selfServe || CFG.resto || CFG.hotel ? 612 : 420, player.y + vy * player.speed * dt));
   // mur de la réserve : on ne passe que par la porte
   if (CFG.reserveWall && (py0 < WALL_Y) !== (player.y < WALL_Y) && (player.x < 164 || player.x > 196)) player.y = py0;
   if (L > .05) player.walk = (player.walk || 0) + dt;
@@ -1497,10 +1820,11 @@ function updatePlayer(dt){
     if (near(player, FLOUR_Z)) did = actReserve(player);
     for (const o of OVENS) if (unlocked(o) && near(player, o.zone)) did = actOvenDrop(player, o) || actOvenTake(player, o) || did;
     if (CFG.selfServe) { for (const p of products()) if (near(player, gzone(p))) did = actVitrine(player, p) || did; }
-    else if (!CFG.resto && near(player, VIT_Z)) did = actVitrine(player) || did;
+    else if (!CFG.resto && !CFG.hotel && near(player, VIT_Z)) did = actVitrine(player) || did;
     if (did) { player.act = .11; tick(640); }
   }
   if (CFG.resto) restoPlayer(dt);
+  if (CFG.hotel) hotelPlayer(dt);
   if (S.cash > 0 && near(player, CASH_Z)) {
     float(player.x, player.y - 40, '+' + S.cash + ' €', '#8a6410');
     S.money += S.cash; S.cash = 0; sfx.register();
@@ -1534,7 +1858,7 @@ function updateWorld(dt){
     reserveT += dt;
     if (reserveT >= (has('mitron') ? .8 : 1.2)) { reserveT = 0; S.reserve++; }
   }
-  updateCart(dt);
+  updateCart(dt); updateBus(dt);
   updateFloats(dt);
   for (const f of flakes) { f.y += f.v * dt; f.x += Math.sin(tclock + f.v) * 4 * dt; if (f.y > 720) { f.y = 632; f.x = Math.random() * 360; } }
 }
@@ -1543,22 +1867,23 @@ function updateWorld(dt){
 function hint(){
   if (!isOpen()) return ['Le local est poussiéreux : rénove-le pour ouvrir', UPG[0]];
   if (S.cash > 0) return ['Ramasse l\'argent près de la caisse', CASH_Z];
-  if (queue.length && !manned()) return ['Un client attend : va à la caisse', CAISSE_Z];
+  if (queue.length && !manned()) return [CFG.hotel ? 'Un client attend : va à la réception' : 'Un client attend : va à la caisse', CAISSE_Z];
   if (CFG.resto) { const r = restoHint(); if (r) return r; }
+  if (CFG.hotel) { const r = hotelHint(); if (r) return r; }
   const st = player.stack, ovs = OVENS.filter(unlocked);
   const sand = OVENS.find(o => o.kind === 'sand');
-  if (st.includes(sand.input) && unlocked(sand) && S.ov[sand.id].in === 0 && S.vit[sand.prod] < 3)
+  if (sand && st.includes(sand.input) && unlocked(sand) && S.ov[sand.id].in === 0 && S.vit[sand.prod] < 3)
     return [CFG.text.sandTo, sand.zone];
-  if (!CFG.resto && st.some(isGood)) return [CFG.text.toVit || 'Pose tes produits dans la vitrine', CFG.selfServe ? gzone(st.find(isGood)) : VIT_Z];
+  if (!CFG.resto && !CFG.hotel && st.some(isGood)) return [CFG.text.toVit || 'Pose tes produits dans la vitrine', CFG.selfServe ? gzone(st.find(isGood)) : VIT_Z];
   if (CFG.selfServe) { const empty = products().find(p => S.vit[p] === 0); if (empty && !workers.some(w => w.role === 'boulanger')) {
     const o = OVENS.find(o => o.prod === empty && o.kind === 'shelf'); if (o && S.ov[o.id].out > 0) return ['Le rayon ' + PRODUCTS[empty].name.toLowerCase() + ' est vide : va en réserve', o.zone]; } }
   const freeOven = ovs.filter(o => isOven(o) && S.ov[o.id].in < OV_IN_CAP).sort((a, b) => stockOf(a) - stockOf(b))[0];
   if (st.includes(RAW) && freeOven) return [CFG.text.putRaw, freeOven.zone];
   if (st.length >= player.cap) return ['Mains pleines : passe à la poubelle', TRASH_Z];
   const ready = ovs.find(o => S.ov[o.id].out > 0);
-  if (ready) return [isOven(ready) ? (CFG.resto ? 'Prends les plats prêts' : 'Sors les produits du four') : ready.kind === 'shelf' ? 'Prends les ' + PRODUCTS[ready.prod].plural + ' en réserve' : 'Récupère les ' + PRODUCTS[ready.prod].plural, ready.zone];
+  if (ready && !CFG.hotel) return [isOven(ready) ? (CFG.resto ? 'Prends les plats prêts' : 'Sors les produits du four') : ready.kind === 'shelf' ? 'Prends les ' + PRODUCTS[ready.prod].plural + ' en réserve' : 'Récupère les ' + PRODUCTS[ready.prod].plural, ready.zone];
   const pads = visiblePads();
-  if (S.dirty.length >= 3 && !has('serveur')) return [CFG.luxe ? 'Les cabines débordent : engage une hôtesse' : 'Les tables sont sales : engage un serveur', UPG.find(u => u.id === 'serveur')];
+  if (!CFG.hotel && S.dirty.length >= 3 && !has('serveur')) return [CFG.luxe ? 'Les cabines débordent : engage une hôtesse' : 'Les tables sont sales : engage un serveur', UPG.find(u => u.id === 'serveur')];
   if (CFG.thief && !has('vigile') && S.sold > 15 && has('apprenti')) return ['Beaucoup de vols : engage un agent de sécurité', UPG.find(u => u.id === 'vigile')];
   if (CFG.luxe && !has('vigile') && customers.filter(c => c.browse && c.state === 'shop').length >= 3)
     return ['Des curieux bloquent les rayons : engage un vigile', UPG.find(u => u.id === 'vigile')];
@@ -1567,7 +1892,7 @@ function hint(){
   if (!upDot.hidden) return ['Touche « Améliorations » en bas à droite', null];
   if (workers.length && pads.length) return ['Prochain achat : ' + pads[0].name + ' (' + pads[0].price + ' €)', null];
   if (has('renovation') && !pads.length) return [CFG.text.final, null];
-  if (CFG.noRaw) return ['Les clients arrivent en voiture de luxe…', null];
+  if (CFG.noRaw) return [CFG.hotel ? 'Les clients arrivent avec leurs valises…' : 'Les clients arrivent en voiture de luxe…', null];
   if (has('fournisseur')) return S.reserve > 0 ? [CFG.text.take, FLOUR_Z] : [CFG.text.wait, null];
   return ['Reste sur le moulin pour moudre de la farine', FLOUR_Z];
 }
@@ -1679,6 +2004,18 @@ function drawItem(t, x, y, s = 1){
     ctx.beginPath(); ctx.ellipse(0, -2, 6.5, 5, 0, Math.PI, 0); ctx.fillStyle = '#6b3a1f'; ctx.fill(); ctx.strokeStyle = '#3f2210'; ctx.lineWidth = .8; ctx.stroke();
     rr(-6, -2, 12, 8, 2, '#ffffff', '#9aa3a8', 1);
     ctx.fillStyle = '#fff'; [[-2, -4.5], [1.5, -5], [0, -3]].forEach(([a, b]) => ctx.fillRect(a, b, 1, 1));
+  } else if (t === 'chambre') {
+    circle(-3.5, -3, 4.2, null, '#d4af37', 2.2); ctx.fillStyle = '#d4af37'; ctx.fillRect(-.5, -1, 9, 2.2); ctx.fillRect(5, 1, 1.8, 3); ctx.fillRect(7.5, 1, 1.8, 2.4);
+  } else if (t === 'valise') {
+    rr(-3, -10, 6, 4, 1.5, null, '#3f2716', 1.4);
+    rr(-8, -7, 16, 14, 2.5, '#9a5a2e', '#3f2716', 1.2); ctx.fillStyle = '#d4af37'; ctx.fillRect(-4.5, -7, 1.6, 14); ctx.fillRect(3, -7, 1.6, 14);
+  } else if (t === 'linge') {
+    rr(-8, -1, 16, 6, 1.5, '#ffffff', '#9aa3a8', 1); rr(-7, -6, 14, 6, 1.5, '#ffffff', '#9aa3a8', 1); ctx.fillStyle = '#7fb3e0'; ctx.fillRect(-7, -4, 14, 1.4);
+  } else if (t === 'cafe') {
+    ctx.beginPath(); ctx.ellipse(0, 4.5, 8, 2.5, 0, 0, 7); ctx.fillStyle = '#f4f7fa'; ctx.fill();
+    rr(-5, -4, 10, 8, 2.5, '#ffffff', '#9aa3a8', 1); circle(5.5, 0, 2.2, null, '#9aa3a8', 1.1); ctx.beginPath(); ctx.ellipse(0, -3.4, 4, 1.3, 0, 0, 7); ctx.fillStyle = '#5a3424'; ctx.fill();
+  } else if (t === 'jus') {
+    rr(-4, -7, 8, 14, 1.5, 'rgba(255,255,255,.7)', '#9aa3a8', 1); ctx.fillStyle = '#f2a33a'; ctx.fillRect(-3, -3, 6, 9); circle(3.5, -7, 2, '#f2a33a', '#c97a1e', .8);
   } else if (t === 'macaron') {
     [['#f2a7bd', -4.5, 1], ['#a8d48f', 4.5, 1], ['#f5d36b', 0, -4]].forEach(([col, dx, dy]) => {
       rr(dx - 4.5, dy - 3, 9, 6, 3, col, '#8a5523', 1); ctx.fillStyle = '#fff6e8'; ctx.fillRect(dx - 4, dy - .4, 8, 1);
@@ -1716,7 +2053,7 @@ function drawRoom(){
   ctx.fillStyle = '#c9b8a2'; ctx.beginPath(); ctx.moveTo(158, 640); ctx.lineTo(202, 640); ctx.lineTo(206, 690); ctx.lineTo(360, 690); ctx.lineTo(360, 708);
   ctx.lineTo(0, 708); ctx.lineTo(0, 690); ctx.lineTo(154, 690); ctx.closePath(); ctx.fill();
   pine(26, 676, .9); pine(70, 690, .7); pine(300, 680, .85); pine(338, 692, .7);
-  if (CFG.selfServe) drawBeauteFloor(); else if (CFG.resto) drawRestoFloor(); else {
+  if (CFG.selfServe) drawBeauteFloor(); else if (CFG.resto) drawRestoFloor(); else if (CFG.hotel) drawHotelFloor(); else {
   // fournil : dalles de pierre
   ctx.save(); ctx.beginPath(); ctx.rect(0, 70, 360, 360); ctx.clip();
   const th = CFG.theme, kc = reno ? th.kitchenReno : th.kitchen;
@@ -1790,6 +2127,7 @@ function drawRoom(){
   text(label, 180 + 9, 18.5, fs);
   if (CFG.selfServe) { drawBeauteFurniture(); return; }
   if (CFG.resto) { drawRestoFurniture(); return; }
+  if (CFG.hotel) { drawHotelFurniture(); return; }
   // comptoir + vitrine
   rr(0, 428, 264, 36, 0, '#7a4b2a'); ctx.fillStyle = '#986238'; ctx.fillRect(0, 428, 264, 7);
   ctx.fillStyle = 'rgba(214,236,238,.55)'; ctx.fillRect(4, 437, 256, 24);
@@ -1913,6 +2251,7 @@ function drawWorkbench(o){
   text(CFG.text.pat, x + 22, y + 22, 7.5);
 }
 function drawOven(o){
+  if (CFG.hotel) return drawHotelStation(o);
   if (!isOven(o)) return drawWorkbench(o);
   const st = S.ov[o.id], p = PRODUCTS[o.prod];
   ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
@@ -1950,7 +2289,7 @@ function drawOven(o){
 
 function drawStations(){
   const z = FLOUR_Z;
-  if (CFG.noRaw) { if (!CFG.reserveWall) text('Réserve', z.x, z.y, 10, 'rgba(51,36,26,.35)'); }
+  if (CFG.noRaw) { if (!CFG.reserveWall && !CFG.hotel) text('Réserve', z.x, z.y, 10, 'rgba(51,36,26,.35)'); }
   else if (!has('fournisseur')) {
     // moulin à bras
     circle(z.x, z.y, 25, '#8d867a', '#4d4740', 2);
@@ -2045,6 +2384,8 @@ function drawPerson(e, opt){
   if (opt.toque) { circle(e.x - 4, e.y - 30 + bob, 4.5, '#fff', '#33241a', 1); circle(e.x + 4, e.y - 30 + bob, 4.5, '#fff', '#33241a', 1); circle(e.x, e.y - 33 + bob, 5, '#fff', '#33241a', 1); rr(e.x - 6, e.y - 29 + bob, 12, 4, 1, '#fff'); }
   else if (opt.cap) { ctx.beginPath(); ctx.arc(e.x, e.y - 23 + bob, 7, Math.PI, 0); ctx.fillStyle = opt.cap; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1.2; ctx.stroke(); rr(e.x - 1, e.y - 25 + bob, 10, 3, 1.5, opt.cap); }
   else if (opt.bonnet) { ctx.beginPath(); ctx.arc(e.x, e.y - 23 + bob, 7.4, Math.PI, 0); ctx.fillStyle = opt.bonnet; ctx.fill(); ctx.strokeStyle = '#33241a'; ctx.lineWidth = 1.2; ctx.stroke(); circle(e.x, e.y - 31 + bob, 2.6, '#fff', '#33241a', 1); }
+  if (opt.pillbox) { rr(x - 5, y - 33, 10, 6, 1.5, opt.pillbox, '#33241a', 1); ctx.fillStyle = '#d4af37'; ctx.fillRect(x - 5, y - 29, 10, 1.4); }
+  if (opt.goggles) rr(x - 7, y - 26, 14, 4.5, 2, opt.goggles, '#33241a', 1);
   if (e.stack) e.stack.forEach((t, i) => drawItem(t, e.x, e.y - 44 - i * 5.5 + bob - (opt.toque ? 4 : opt.tallToque ? 12 : 0), .62));
 }
 
@@ -2072,7 +2413,8 @@ function drawCustomer(c){
     bubble(c.x, c.y - 48, () => { rr(c.x - 5, c.y - 55, 10, 13, 1.5, '#ffffff', '#33241a', 1); ctx.fillStyle = '#7d8590'; [-51, -48, -45].forEach(y => ctx.fillRect(c.x - 3, c.y + y, 6, 1.2)); });
     return;
   }
-  const mad = (c.state === 'shop' && c.pat < 18 && !CFG.resto) || (c.state === 'order' && c.pat < 15) || (c.state === 'queue' && c.wait > 20) || (c.state === 'leave' && c.mood === 'angry');
+  if (CFG.hotel && c.state === 'sleep') return;
+  const mad = (c.state === 'shop' && c.pat < 18 && !CFG.resto) || ((c.state === 'order' || c.state === 'bagwait') && c.pat < 15) || (c.state === 'queue' && c.wait > 20) || (c.state === 'leave' && c.mood === 'angry');
   drawPerson(c, { body:c.coat, cap:c.critic ? '#2c3036' : null, bonnet:c.hat, scarf:c.critic ? null : c.hat, face:mad ? '#f0a38c' : null });
   const by = c.y - 48;
   if (mad && c.y < 640) anger(c.x + 12, c.y - 30);
@@ -2082,6 +2424,13 @@ function drawCustomer(c){
     else if (c.state === 'shop') bubble(c.x, by, () => text('…', c.x, by - 1, 11, '#7d8590'));
     else if (c.state === 'eat') { const st = SEATS[c.seat] || c, t = RESTO_TABLES[st.table] || c; drawItem(c.want, t.x + (st.side || 0) * 6, t.y - 1, .45); }
     return;
+  }
+  if (CFG.hotel && ['enter', 'shop', 'queue', 'toroom', 'bagwait', 'brkgo', 'order', 'eat'].includes(c.state)) {
+    if (['enter', 'shop', 'queue'].includes(c.state)) drawItem('valise', c.x + 12, c.y - 4, .7);
+    if (c.state === 'bagwait') bubble(c.x, by, () => drawItem('valise', c.x, by - 1, .6), mad);
+    else if (c.state === 'order') bubble(c.x, by, () => drawItem(c.want, c.x, by - 1, .6), mad);
+    else if (c.state === 'eat') { const st = SEATS[c.seat] || c, t = HOTEL_TABLES[st.table] || c; drawItem(c.want, t.x + (st.side || 0) * 6, t.y - 1, .45); }
+    if (c.state !== 'queue') return;
   }
   if (c.browse && c.state === 'shop') { bubble(c.x, by, () => text('?', c.x, by + .5, 12, '#7d8590')); return; }
   if (c.state === 'refused') { bubble(c.x, by, () => text('Non', c.x, by + .5, 9, '#c8433a'), true); return; }
@@ -2126,11 +2475,11 @@ function draw(){
   const ents = [];
   customers.forEach(c => { if (!c.hidden) ents.push({ y:c.y, f:() => drawCustomer(c) }); });
   workers.forEach(w => ents.push({ y:w.y, f:() => drawPerson(w,
-    CFG.resto ? (w.role === 'mitron' ? { body:'#ffffff', buttons:'#33241a', toque:true } : w.role === 'serveur' ? { body:'#5d8aa8', apron:'#e8eef2', cap:'#3f6b8f' } : { body:'#151515', shirt:'#ffffff', bow:'#151515', hair:'#2a1a12', hairStyle:'slick' })
+    w.role === 'hotel' ? hotelLook(w) : CFG.resto ? (w.role === 'mitron' ? { body:'#ffffff', buttons:'#33241a', toque:true } : w.role === 'serveur' ? { body:'#5d8aa8', apron:'#e8eef2', cap:'#3f6b8f' } : { body:'#151515', shirt:'#ffffff', bow:'#151515', hair:'#2a1a12', hairStyle:'slick' })
     : w.role === 'mitron' ? { body:'#8a8f96', apron:'#fffaf0', toque:true }
     : w.role === 'serveur' ? (CFG.beauty ? { body:'#1f1f1f', apron:'#f58bb0', cap:'#d36f9a' } : CFG.luxe ? { body:'#f4efe6', apron:'#1f1f1f', cap:'#1f1f1f' } : { body:'#2c3036', apron:'#fffaf0', cap:'#2c3036' })
     : CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#d4af37', cap:'#1f1f1f' } : { body:'#3f6b8f', apron:'#fffaf0', toque:true }) }));
-  if (has('apprenti')) { const a = LAYOUT.app; ents.push({ y:a.y, f:() => drawPerson(a, CFG.resto ? { body:'#151515', shirt:'#ffffff', hair:'#7a4a2a', hairStyle:'bun' } : CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#f4efe6', cap:'#1f1f1f' } : { body:'#3f6b4f', apron:'#fffaf0', cap:'#c9762b' }) }); }
+  if (has('apprenti')) { const a = LAYOUT.app; ents.push({ y:a.y, f:() => drawPerson(a, CFG.hotel ? { body:'#1f3a5f', shirt:'#ffffff', hair:'#2a1a12', hairStyle:'slick' } : CFG.resto ? { body:'#151515', shirt:'#ffffff', hair:'#7a4a2a', hairStyle:'bun' } : CFG.beauty ? { body:'#e05a7a', apron:'#ffffff', cap:'#1f1f1f' } : CFG.luxe ? { body:'#1f1f1f', apron:'#f4efe6', cap:'#1f1f1f' } : { body:'#3f6b4f', apron:'#fffaf0', cap:'#c9762b' }) }); }
   if (has('patissier')) { const a = { x:185, y:228, walk:tclock * .4 }; ents.push({ y:a.y, f:() => drawPerson(a, CFG.luxe ? { body:'#7a5a8a', apron:'#f4efe6', cap:'#d4af37' } : { body:'#d36f9a', apron:'#fffaf0', toque:true }) }); }
   if (inspector) { const e = inspector; ents.push({ y:e.y, f:() => {
     drawPerson(e, { body:'#4a4f57', cap:'#2c3036' });
@@ -2163,7 +2512,7 @@ let lastMoney = -1, lastHint = '';
 const starsEl = document.getElementById('stars');
 let lastStars = '';
 const shopBtn = document.getElementById('shopBtn'), shopPanel = document.getElementById('shopPanel'), shopList = document.getElementById('shopList');
-const SHOP_ORDER = ['boulangerie', 'pizzeria', 'luxe', 'beaute', 'resto'];
+const SHOP_ORDER = ['boulangerie', 'pizzeria', 'luxe', 'beaute', 'resto', 'hotel'];
 function renderShops(){
   shopList.innerHTML = SHOP_ORDER.filter(id => GAME.shops[id]).map(id => {
     const st = GAME.shops[id], pend = Math.floor(GAME.pending[id] || 0), here = id === SHOP_ID;
@@ -2390,6 +2739,8 @@ const SKINS = [
   { id:'kpop',        shop:'beaute',      name:'Look K-pop',       price:8000,  look:{ body:'#ff6fb1', stripes:'#36c5f0', hair:'#c7b8ff', hairStyle:'long' } },
   { id:'chef',        shop:'resto',       name:'Chef étoilé',      price:0,     look:{ body:'#ffffff', buttons:'#33241a', neck:'#2c4a8a', tallToque:true } },
   { id:'maitre',      shop:'resto',       name:'Maître d\'hôtel',  price:15000, look:{ body:'#151515', shirt:'#ffffff', bow:'#151515', tails:'#151515', hair:'#2a1a12', hairStyle:'slick' } },
+  { id:'groom',       shop:'hotel',       name:'Groom',            price:0,     look:{ body:'#b8312f', buttons:'#d4af37', pillbox:'#b8312f' } },
+  { id:'ski',         shop:'hotel',       name:'Tenue de ski',     price:35000, look:{ body:'#2f8fd8', stripes:'#ffffff', bonnet:'#e8473f', goggles:'#f2b632' } },
 ];
 const shopReady = id => !!GAME.shops[id] && shopOpen(id);
 const skinOwned = s => shopReady(s.shop) && (!s.price || GAME.skins.owned.includes(s.id));
@@ -2441,7 +2792,7 @@ document.getElementById('skinBtn').onclick = () => { panel.hidden = true; skinPa
 document.getElementById('skinClose').onclick = () => { skinPanel.hidden = true; paused = false; last = performance.now(); };
 
 // ---------- Événements : l'influenceuse et les demandes de remboursement ----------
-let influT = rnd(360, 600), refundT = rnd(180, 300), criticT = rnd(180, 300), boostT = 0, influCine = null, refundC = null, flashes = [], flashT = 0;
+let influT = rnd(360, 600), refundT = rnd(180, 300), criticT = rnd(180, 300), busT = rnd(200, 320), boostT = 0, influCine = null, refundC = null, flashes = [], flashT = 0;
 const NAMES = [['Martin', 0], ['Julie', 1], ['Kevin', 0], ['Sophie', 1], ['Lucas', 0], ['Chloé', 1], ['Nadia', 1], ['Hugo', 0], ['Inès', 1], ['Thomas', 0]];
 // excuses validées ensemble : [texte, légitime ?]
 const REFUNDS = {
@@ -2467,8 +2818,12 @@ const REFUNDS = {
   resto:[
     ['Mon velouté était froid.', 1], ['Mon filet de bœuf était trop cuit, je l\'avais demandé saignant.', 1],
     ['Mon soufflé était retombé avant d\'arriver à table.', 1], ['L\'assiette était immense pour une si petite portion.', 0],
-    ['Il n\'y avait pas de ketchup pour mon filet de bœuf.', 0], ['Le serveur ne m\'a pas appelé « Votre Altesse ».', 0],
+    ['Il n\'y avait pas de ketchup pour mon filet de bœuf.', 0], ['Le serveur puait de la bouche.', 0],
     ['La truffe ne ressemblait pas à un champignon.', 0]],
+  hotel:[
+    ['Il y avait un cheveu dans mon lit.', 1], ['Ma valise est arrivée toute mouillée.', 1], ['Le café du petit-déjeuner était froid.', 1],
+    ['La vue sur la montagne était trop montagneuse.', 0], ['Mon oreiller était trop moelleux, j\'ai trop bien dormi.', 0],
+    ['Il a neigé pendant tout mon séjour.', 0], ['Le lit était trop loin de la plage.', 0]],
 };
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const starTxt = d => (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1).replace('.', ',') + ' ★';
@@ -2481,6 +2836,7 @@ function updateEvents(dt){
   if (influT <= 0) { influT = rnd(360, 600); if (!customers.some(c => c.influ)) spawnInflu(); }
   else if (refundT <= 0) { refundT = rnd(180, 300); spawnRefund(); }
   if (CFG.resto && (S.michelin || 0) < 3 && (criticT -= dt) <= 0) { criticT = rnd(240, 420); spawnCritic(); }
+  if (CFG.hotel && !bus && (busT -= dt) <= 0) { busT = rnd(300, 480); spawnBus(); }
 }
 
 // --- l'influenceuse : arrivée filmée, fans autour d'elle, 30 secondes pour la servir ---
@@ -2492,6 +2848,7 @@ function spawnInflu(){
     path:[[DOOR_OUT.x + rnd(-6, 6), 696], [DOOR_OUT.x, DOOR_OUT.y], [DOOR_IN.x, DOOR_IN.y]] };
   if (CFG.selfServe) { c.list = [want]; c.idx = 0; c.basket = []; c.ox = 0; c.pat = 30; c.path.push([180, 590]); }
   else if (CFG.resto) c.path.push([180, 596]);
+  else if (CFG.hotel) { c.want = 'chambre'; c.got = 1; c.room = null; c.path.push([180, 600]); }
   else {
     const used = new Set(customers.filter(o => o.slot != null).map(o => o.slot));
     c.slot = VSLOTS.map((_, i) => i).find(i => !used.has(i)); if (c.slot == null) c.slot = 2;
@@ -2535,7 +2892,8 @@ function influResult(c, ok){
 }
 function influTick(c, dt){
   if (c.done || c.state === 'leave') return false;
-  if (CFG.resto && c.state !== 'order') return false;   // au restaurant, le chrono part quand elle est assise
+  if (CFG.resto && c.state !== 'order') return false;
+  if (CFG.hotel && c.state !== 'bagwait') return false;   // à l'hôtel, le chrono part quand elle attend sa valise   // au restaurant, le chrono part quand elle est assise
   c.influT -= dt;
   if (c.influT > 0) return false;
   influResult(c, false);
@@ -2561,7 +2919,7 @@ function drawFlashes(){
   }
 }
 function drawInflu(c){
-  const look = { boulangerie:{ cap:'#c8433a' }, pizzeria:{ cap:'#3f6b4f' }, luxe:{ cap:'#1f1f1f' }, beaute:{ bonnet:'#f2a7bd' }, resto:{ cap:'#7a1f2b' } }[SHOP_ID];
+  const look = { boulangerie:{ cap:'#c8433a' }, pizzeria:{ cap:'#3f6b4f' }, luxe:{ cap:'#1f1f1f' }, beaute:{ bonnet:'#f2a7bd' }, resto:{ cap:'#7a1f2b' }, hotel:{ bonnet:'#ffffff' } }[SHOP_ID];
   if (SHOP_ID === 'beaute') circle(c.x, c.y - 21, 13, null, 'rgba(255,255,255,.9)', 3);
   drawPerson(c, Object.assign({ body:'#f58bb0', apron:'#ffffff' }, look));
   rr(c.x - 6, c.y - 23, 12, 3.5, 1.5, '#111');
