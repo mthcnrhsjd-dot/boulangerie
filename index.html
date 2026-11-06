@@ -509,7 +509,7 @@ const SHOPS = {
       billet:  { name:'Billet', plural:'billets',                      price:400, time:1,   need:1 },
       vol:     { name:'Vol', plural:'vols',                            price:300, time:1,   need:1 },
       valise:  { name:'Valise', plural:'valises',                      price:0,   time:1,   need:1 },
-      chocolat:{ name:'Chocolat suisse', plural:'chocolats suisses',   price:120, time:2.0, need:1 },
+      chocolat:{ name:'Chocolat de Dubaï', plural:'chocolats de Dubaï', price:120, time:2.0, need:1 },
       parfum:  { name:'Parfum', plural:'parfums',                      price:220, time:2.4, need:1 },
     },
     order:['billet','vol','valise','chocolat','parfum'],
@@ -529,7 +529,7 @@ const SHOPS = {
       { id:'bagagiste',  name:'Bagagiste',              sub:'charge la soute',        price:18000,  x:120, y:470, after:['apprenti'],              msg:'Le bagagiste porte les valises du tapis à la soute' },
       { id:'surete',     name:'Agent de sûreté',        sub:'fait passer le portique',price:20000,  x:70,  y:370, after:['bagagiste'],             msg:'L\'agent fait passer les passagers. Les objets suspects restent ta décision' },
       { id:'avion1',     name:'Avion de 12 places',     sub:'plus de passagers',      price:30000,  x:300, y:410, after:['surete'],                msg:'Nouvel avion : 12 places' },
-      { id:'dutyfree',   name:'Duty free',              sub:'chocolats suisses',      price:25000,  x:120, y:470, after:['surete'],                msg:'Duty free ouvert : remplis-le avec la réserve' },
+      { id:'dutyfree',   name:'Duty free',              sub:'chocolats de Dubaï',     price:25000,  x:120, y:470, after:['surete'],                msg:'Duty free ouvert : remplis-le avec la réserve' },
       { id:'vendeuse',   name:'Vendeuse duty free',     sub:'remplit le duty free',   price:25000,  x:120, y:560, after:['dutyfree'],              msg:'La vendeuse remplit le duty free' },
       { id:'parfums',    name:'Rayon parfums',          sub:'au duty free',           price:30000,  x:70,  y:370, after:['vendeuse'],              msg:'Nouveau au duty free : les parfums !' },
       { id:'avion2',     name:'Gros porteur',           sub:'16 places',              price:60000,  x:300, y:410, after:['avion1','parfums'],      msg:'Gros porteur : 16 places par vol' },
@@ -2779,7 +2779,10 @@ function drawItem(t, x, y, s = 1){
   } else if (t === 'billet') {
     rr(-9, -5, 18, 10, 2, '#ffffff', '#2c4a8a', 1.2); ctx.fillStyle = '#2c4a8a'; ctx.fillRect(-9, -5, 5, 10); ctx.fillStyle = '#9aa3a8'; ctx.fillRect(-2, -2, 9, 1.2); ctx.fillRect(-2, 1, 6, 1.2);
   } else if (t === 'chocolat') {
-    rr(-9, -4, 18, 8, 1.5, '#c8433a', '#7a1f2b', 1); ctx.fillStyle = '#ffffff'; ctx.fillRect(-2, -3, 4, 6); ctx.fillRect(-4, -1, 8, 2);
+    // tablette de Dubaï : emballage doré, chocolat cassé avec la crème de pistache verte
+    rr(-9, -4, 12, 8, 1.5, '#d4af37', '#8a6410', 1);
+    rr(1, -4, 8, 8, 1.5, '#5a3424', '#3f2210', 1); ctx.fillStyle = '#8fbf4a'; ctx.fillRect(1.5, -.8, 7, 2.2);
+    ctx.fillStyle = '#fff3c4'; ctx.fillRect(-7, -1.5, 6, 1);
   } else if (t === 'chambre') {
     circle(-3.5, -3, 4.2, null, '#d4af37', 2.2); ctx.fillStyle = '#d4af37'; ctx.fillRect(-.5, -1, 9, 2.2); ctx.fillRect(5, 1, 1.8, 3); ctx.fillRect(7.5, 1, 1.8, 2.4);
   } else if (t === 'valise') {
