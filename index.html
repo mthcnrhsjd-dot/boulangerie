@@ -673,7 +673,9 @@ function enterShop(id, quiet){
   player.stack = (S.stack || []).filter(t => t === RAW || CFG.products[t]).slice(0, 12);
   player.x = 90; player.y = 372;
   workers = []; customers = []; queue = []; floats = []; cars = []; inspector = null; inspectT = -1; spawnT = 1.5; cart = null; bus = null; secQ = []; plane = null; floorBag = null; secC = null; flightAsked = false; secPanel.hidden = true; flightPanel.hidden = true; liftQ = []; lift = null; glove = null; liftAsked = false; liftPanel.hidden = true;
-  if (CFG.ski && !S.rack) S.rack = { p:8, m:8, g:8 };
+  // les skis loués partent avec les skieurs quand on quitte la station : on recompte les paires,
+  // tout ce qui n'est pas dans les skis rendus revient au râtelier (répare aussi les anciennes sauvegardes)
+  if (CFG.ski) { S.ret = S.ret || []; S.rack = {}; SIZES.forEach(s => { S.rack[s] = Math.max(0, SKI_PAIRS - S.ret.filter(x => x === s).length); }); }
   boostT = 0; influCine = null; refundC = null; flashes = []; refundPanel.hidden = true;
   applyUpgrades(); lastStars = '';
   if (actx) Music.play(id);
@@ -2016,7 +2018,7 @@ function drawAirFurniture(){
 // ---------- Station de ski : forfaits, location de skis, télésiège, secours, chalet ----------
 // le skieur paie son forfait, attend des skis à sa taille, monte au télésiège quand tu le lances,
 // descend la piste (il peut tomber), boit un chocolat au chalet, puis rend ses skis
-const SIZES = ['p', 'm', 'g'], SIZE_NAME = { p:'petite', m:'moyenne', g:'grande' };
+const SIZES = ['p', 'm', 'g'], SIZE_NAME = { p:'petite', m:'moyenne', g:'grande' }, SKI_PAIRS = 8;
 const skiItem = s => 'ski_' + s;
 const RACK_Z = { p:{ x:60, y:420, w:56, h:40 }, m:{ x:60, y:480, w:56, h:40 }, g:{ x:60, y:540, w:56, h:40 } };
 const RET_Z = { x:130, y:582, w:48, h:34 };
